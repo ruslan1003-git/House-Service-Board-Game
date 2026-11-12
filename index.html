@@ -15,12 +15,13 @@
     <header class="topbar">
       <a class="brand" href="#" aria-label="Домоуправ">
         <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M7 19.5 20 9l13 10.5v13a1.5 1.5 0 0 1-1.5 1.5h-23A1.5 1.5 0 0 1 7 32.5v-13Z" fill="currentColor"/><path d="M16 34V22h8v12M12 20h4m8 0h4" stroke="#F7F6F1" stroke-width="2" stroke-linecap="round"/></svg></span>
-        <span>домоуправ<span class="brand-dot">.</span></span>
+        <span id="company-name-label">Домоуправ</span><span class="brand-dot">.</span>
       </a>
       <div class="topbar-center"><span class="online-dot"></span> ИГРА В РАЗРАБОТКЕ</div>
-      <div class="sticky-balance"><span>БЮДЖЕТ КОМПАНИИ</span><b id="sticky-capital-value">100 ₽</b></div>
+      <div class="sticky-finances"><div class="sticky-prior-expenses"><strong>Расходы за прошлый сезон</strong><small>БО: <span id="sticky-prior-upkeep">−0,00 ₽</span></small><small>ЗП: <span id="sticky-prior-salaries">−0,00 ₽</span></small><small>Штрафы: <span id="sticky-prior-fines">−0,00 ₽</span></small><small>Возмещение ущерба: <span id="sticky-prior-compensation">−0,00 ₽</span></small><small>Решение проблем: <span id="sticky-prior-repairs">−0,00 ₽</span></small></div><div class="sticky-income"><strong>Приход за прошлый сезон: <span id="sticky-income-total">+0,00 ₽</span></strong><small>Содержание: <span id="sticky-collection-income">+0,00 ₽</span></small><small>Платные заявки: <span id="sticky-paid-income">+0,00 ₽</span></small></div><div class="sticky-balance"><span>БЮДЖЕТ КОМПАНИИ</span><b id="sticky-capital-value">100,00 ₽</b><div class="sticky-breakdown"><strong>Предстоящие расходы: <span id="sticky-expense-total">−30,00 ₽</span></strong><small>БО: <span id="sticky-upkeep-value">−30,00 ₽</span></small><small>ЗП: <span id="sticky-payroll-value">−0,00 ₽</span></small><small>Штрафы: <span id="sticky-fines-value">−0,00 ₽</span></small><small>Возмещение ущерба: <span id="sticky-compensation-value">−0,00 ₽</span></small><small>Решение проблем: <span id="sticky-problem-repairs">−0,00 ₽</span></small></div></div></div>
       <button class="icon-button" id="reset-button" type="button" aria-label="Начать заново" title="Начать заново"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 0 0-14.5-4L4 9m0 0V4m0 5h5m-5 4a8 8 0 0 0 14.5 4L20 15m0 0v5m0-5h-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </header>
+    <div id="sticky-turn-status" class="sticky-turn-status" aria-live="polite"><span id="sticky-season-value">Лето · год 1</span><b id="sticky-phase-value">Подготовка к игре</b></div>
 
     <main>
       <section class="hero">
@@ -38,31 +39,33 @@
 
       <section class="dashboard" aria-label="Игровое поле">
         <div class="dashboard-heading"><div><p class="section-label">ТЕКУЩАЯ СИТУАЦИЯ</p><h2>Дела компании</h2></div><div class="turn-pill"><span class="turn-icon">↗</span><span id="turn-label">ХОД 1</span></div></div>
-        <section class="timeline-panel" aria-label="Годовой таймлайн"><div class="timeline-title"><div><p class="section-label">КАЛЕНДАРЬ УПРАВЛЕНИЯ</p><h2 id="timeline-year">Год 1</h2></div><span class="phase-badge" id="phase-label">Найм и увольнение</span></div><div class="season-track" id="season-track"></div><div class="phase-track"><span class="phase-step active" data-phase="staffing">1 · Команда</span><span class="phase-step" data-phase="drawing">2 · Приём заявок</span><span class="phase-step" data-phase="resolving">3 · Выполнение</span><span class="phase-step" data-phase="legal">4 · Юрист</span><span class="phase-step" data-phase="annualReport">5 · Годовой отчёт</span><span class="phase-step" data-phase="bankruptcy">6 · Банкротство</span></div></section>
+        <section class="timeline-panel" aria-label="Годовой таймлайн"><div class="timeline-title"><div><p class="section-label">КАЛЕНДАРЬ УПРАВЛЕНИЯ</p><h2 id="timeline-year">Год 1</h2></div><span class="phase-badge" id="phase-label">Подготовка к игре</span></div><div class="season-track" id="season-track"></div><div class="phase-track"><span class="phase-step active" data-phase="preparation">0 · Подготовка</span><span class="phase-step" data-phase="staffing">1 · Менеджмент</span><span class="phase-step" data-phase="inspection">2 · Осмотр</span><span class="phase-step" data-phase="problems">3 · Проблемы</span><span class="phase-step" data-phase="drawing">4 · Приём заявок</span><span class="phase-step" data-phase="resolving">5 · Распределение</span><span class="phase-step" data-phase="legal">6 · Специалисты</span><span class="phase-step" data-phase="payroll">7 · Зарплаты</span><span class="phase-step" data-phase="collection">8 · Сборы</span><span class="phase-step" data-phase="annualReport">9 · Годовой отчёт</span><span class="phase-step" data-phase="bankruptcy">10 · Банкротство</span></div></section>
         <section id="annual-report" class="annual-report" hidden></section>
         <section id="bankruptcy-panel" class="bankruptcy-panel" hidden></section>
+        <section id="inspection-panel" class="inspection-panel" hidden></section>
         <div class="stats-grid">
-          <article class="stat-card capital-card"><div class="stat-top"><span>КАПИТАЛ КОМПАНИИ</span><span class="stat-symbol ruble">₽</span></div><div class="stat-value" id="capital-value">100 <span>₽</span></div><div class="stat-note"><span class="status-dot"></span> Уставный капитал</div><div class="capital-bar"><div id="capital-bar-fill"></div></div></article>
+          <article class="stat-card capital-card"><div class="stat-top"><span>КАПИТАЛ КОМПАНИИ</span><span class="stat-symbol ruble">₽</span></div><div class="stat-value" id="capital-value">100,00 <span>₽</span></div><div class="stat-note"><span class="status-dot"></span> Уставный капитал</div><div class="capital-bar"><div id="capital-bar-fill"></div></div></article>
           <article class="stat-card"><div class="stat-top"><span>ДОМОВ В УПРАВЛЕНИИ</span><span class="stat-symbol">⌂</span></div><div class="stat-value" id="houses-value">1 <span>дом</span></div><div class="stat-note">Портфель компании</div></article>
           <article class="stat-card"><div class="stat-top"><span>ОБЩАЯ ПЛОЩАДЬ</span><span class="stat-symbol">▧</span></div><div class="stat-value" id="area-value">10 <span>м²</span></div><div class="stat-note">Расчётная площадь</div></article>
-          <article class="stat-card income-card"><div class="stat-top"><span>СБОР ЗА ХОД</span><span class="stat-symbol">↗</span></div><div class="stat-value" id="income-value">100 <span>₽</span></div><div class="stat-note">Тариф 10 ₽ × 10 м²</div></article>
+          <article class="stat-card income-card"><div class="stat-top"><span>СБОР ЗА ХОД</span><span class="stat-symbol">↗</span></div><div class="stat-value" id="income-value">100,00 <span>₽</span></div><div class="stat-note">Тариф 10,00 ₽ × 10 м²</div></article>
           <article class="stat-card collection-card"><div class="stat-top"><span>СОБИРАЕМОСТЬ · ПРОШЛЫЙ ПЕРИОД</span><span class="stat-symbol">%</span></div><div class="stat-value" id="collection-value">—</div><div class="stat-note">Все дома в управлении</div></article>
           <article class="stat-card cancelled-card"><div class="stat-top"><span>ОТМЕНЕНО ЗА ГОД</span><span class="stat-symbol">×</span></div><div class="stat-value" id="cancelled-value">0 <span>заявок</span></div><div class="stat-note">Текущий год</div></article>
           <article class="stat-card reputation-card"><div class="stat-top"><span>РЕПУТАЦИЯ ИГРОКА</span><span class="stat-symbol">✦</span></div><div class="stat-value reputation-value" id="reputation-value">+1</div><div class="stat-note">Личная репутация директора</div></article>
-          <article class="stat-card house-debt-card"><div class="stat-top"><span>ДОЛГИ ПО ПОРТФЕЛЮ</span><span class="stat-symbol">↙</span></div><div class="stat-value" id="house-debt-value">0 ₽</div></article>
-          <article class="stat-card upkeep-card"><div class="stat-top"><span>БАЗОВОЕ ОБСЛУЖИВАНИЕ</span><span class="stat-symbol">⌂</span></div><div class="stat-value" id="upkeep-value">30 <span>₽</span></div><div class="stat-note">Расход за ход</div></article>
-          <article class="stat-card"><div class="stat-top"><span>ЗАРПЛАТЫ</span><span class="stat-symbol">♙</span></div><div class="stat-value" id="payroll-value">0 <span>₽</span></div><div class="stat-note">Фонд за ход</div></article>
+          <article class="stat-card house-debt-card"><div class="stat-top"><span>ДОЛГИ ПО ПОРТФЕЛЮ</span><span class="stat-symbol">↙</span></div><div class="stat-value" id="house-debt-value">0,00 ₽</div></article>
+          <article class="stat-card upkeep-card"><div class="stat-top"><span>БАЗОВОЕ ОБСЛУЖИВАНИЕ</span><span class="stat-symbol">⌂</span></div><div class="stat-value" id="upkeep-value">30,00 <span>₽</span></div><div class="stat-note">Расход за ход</div></article>
+          <article class="stat-card"><div class="stat-top"><span>ЗАРПЛАТЫ</span><span class="stat-symbol">♙</span></div><div class="stat-value" id="payroll-value">0,00 <span>₽</span></div><div class="stat-note">Фонд за ход</div></article>
         </div>
         <section id="house-card" class="house-card" aria-label="Карточка дома"></section>
-        <section class="penalties-panel"><div class="panel-heading"><div><p class="section-label">ОТДЕЛЬНЫЙ РАСЧЁТ</p><h2>Штрафы и компенсации</h2></div><span class="penalty-total" id="penalties-summary">Обязательства: 0 ₽</span></div><div class="penalties-list" id="penalties-list"></div></section>
-        <section id="legal-panel" class="legal-panel" hidden></section>
+        <section class="penalties-panel"><div class="panel-heading"><div><p class="section-label">ОТДЕЛЬНЫЙ РАСЧЁТ</p><h2>Штрафы и компенсации</h2></div><span class="penalty-total" id="penalties-summary">Обязательства: 0,00 ₽</span></div><div class="penalties-list" id="penalties-list"></div></section>
 
-        <section class="market-panel">
-          <div class="panel-heading"><div><p class="section-label">НАЧАЛО ХОДА · НАЙМ И УВОЛЬНЕНИЕ</p><h2>Рынок труда</h2></div><span class="deck-badge"><span></span> <span id="staff-count">0 В ШТАТЕ</span></span></div>
+        <section class="market-panel" id="market-panel">
+          <div class="preparation-controls" id="preparation-controls" hidden><p class="section-label">ПЕРЕД ПЕРВЫМ ХОДОМ</p><h2>Открой управляющую компанию</h2><p>Придумай название и собери стартовую команду. После начала игры начнётся первое лето.</p><label for="company-name-input">Название управляющей организации</label><input id="company-name-input" type="text" maxlength="36" autocomplete="organization" placeholder="Например, «Дом и порядок»"></div>
+          <div class="panel-heading"><div><p class="section-label" id="market-kicker">НАЧАЛО ХОДА · НАЙМ И УВОЛЬНЕНИЕ</p><h2 id="market-heading">Рынок труда</h2></div><span class="deck-badge"><span></span> <span id="staff-count">0 В ШТАТЕ</span></span></div>
           <p class="market-copy" id="market-copy">Рынок предлагает исполнителей и специалистов. Без HR-менеджера за ход можно нанять двух сотрудников.</p>
           <div class="market-grid" id="market-list"></div>
-          <div class="team-heading"><span>КОМАНДА</span><span id="team-payroll">Зарплатный фонд: 0 ₽ / ход</span></div>
+          <div class="team-heading"><span>КОМАНДА</span><span id="team-payroll">Зарплатный фонд: 0,00 ₽ / ход</span></div>
           <div class="team-list" id="team-list"></div>
+          <button class="primary-button preparation-start preparation-confirm" id="confirm-preparation-button" type="button"><span>Начать игру с выбранной командой</span><span class="button-arrow">↗</span></button>
         </section>
 
         <div class="turn-layout">
@@ -73,11 +76,14 @@
           <aside class="actions-panel"><div class="actions-heading"><p class="section-label">ТВОЙ ХОД</p><span class="round-number" id="round-number">01</span></div><h2 id="action-title">С чего начнём?</h2><p class="action-copy" id="action-copy">Разбери входящие заявки. Каждое решение стоит денег, а на кону — репутация компании.</p>
             <div class="action-buttons"><button class="primary-button" id="draw-button" type="button"><span>Принять заявки</span><span class="button-arrow">↗</span></button><button class="secondary-button" id="end-turn-button" type="button" disabled><span>Завершить ход</span><span>→</span></button></div>
             <div class="rules-note"><span class="note-icon">i</span><p>В конце хода выплачиваются зарплаты, БО и собирается доля платежей по случайной <b>собираемости.</b></p></div>
-            <section class="phase-guide"><p class="section-label">ФАЗЫ ХОДА</p><ol><li data-guide-step="0"><span>1</span>Менеджмент сотрудников</li><li data-guide-step="1"><span>2</span>Приём заявок</li><li data-guide-step="2"><span>3</span>Распределение заявок</li><li data-guide-step="3"><span>4</span>Задачи специалистам</li><li data-guide-step="4"><span>5</span>Выплаты ЗП</li><li data-guide-step="5"><span>6</span>Сбор содержания</li></ol><p class="phase-guide-note">Зарплаты, базовое обслуживание и сбор платежей рассчитываются при завершении хода.</p></section>
+            <section class="phase-guide"><p class="section-label">ЭТАПЫ ХОДА</p><ol><li data-guide-step="0"><span>1</span>Менеджмент сотрудников</li><li data-guide-step="1"><span>2</span>Сезонный осмотр · осень/весна</li><li data-guide-step="2"><span>3</span>Решение проблем</li><li data-guide-step="3"><span>4</span>Приём заявок</li><li data-guide-step="4"><span>5</span>Распределение заявок</li><li data-guide-step="5"><span>6</span>Задачи специалистам</li><li data-guide-step="6"><span>7</span>Выплата ЗП</li><li data-guide-step="7"><span>8</span>Сбор содержания</li></ol><p class="phase-guide-note">Осмотр пропускается летом и зимой. На этапе сбора содержания оплачивается базовое обслуживание и собираются платежи.</p></section>
+            <section id="problem-panel" class="problem-panel" hidden></section>
+            <section id="legal-panel" class="legal-panel" hidden></section>
           </aside>
         </div>
         <section class="log-panel"><div class="log-heading"><div><p class="section-label">ИСТОРИЯ КОМПАНИИ</p><h2>Последние события</h2></div><button id="clear-log-button" class="text-button" type="button">Очистить</button></div><div id="event-log" class="event-log"><div class="log-entry"><span class="log-marker"></span><span>Компания открыла первый дом под управлением.</span><time>ХОД 1</time></div></div></section>
       </section>
+      <section id="financial-infographic" class="financial-infographic" aria-label="Финансовая инфографика"></section>
       <section class="staff-reference" aria-label="Справочник сотрудников и заявок">
         <h2>Справочник игры</h2>
         <div class="reference-grid">
@@ -85,6 +91,7 @@
             <tr><td>Юрист</td><td>Взыскивает задолженность дома или оспаривает штрафы и компенсации.</td></tr>
             <tr><td>Бухгалтер</td><td>Сохраняет задолженность жильцов за прошлые периоды для последующего взыскания.</td></tr>
             <tr><td>HR-менеджер</td><td>Снимает лимит найма, вводит двухходовой испытательный срок с половинной зарплатой и уменьшает премию за переработку вдвое.</td></tr>
+            <tr><td>Инженер</td><td>При осмотрах осенью и весной уменьшает число выявленных проблем на одну.</td></tr>
             <tr><td>Сантехник</td><td>Выполняет заявки категории «Сантехника»; продуктивность 3 трудозатраты за ход.</td></tr>
             <tr><td>Электрик</td><td>Выполняет заявки категории «Электрика»; продуктивность 3 трудозатраты за ход.</td></tr>
             <tr><td>Разнорабочий</td><td>Выполняет заявки категории «Общестрой»; продуктивность 5 трудозатрат за ход.</td></tr>

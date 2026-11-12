@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f1eb">
+  <title>Домоуправ — настольная экономическая игра</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="game-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Домоуправ">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M7 19.5 20 9l13 10.5v13a1.5 1.5 0 0 1-1.5 1.5h-23A1.5 1.5 0 0 1 7 32.5v-13Z" fill="currentColor"/><path d="M16 34V22h8v12M12 20h4m8 0h4" stroke="#F7F6F1" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <span>домоуправ<span class="brand-dot">.</span></span>
+      </a>
+      <div class="topbar-center"><span class="online-dot"></span> ИГРА В РАЗРАБОТКЕ</div>
+      <div class="sticky-balance"><span>БЮДЖЕТ КОМПАНИИ</span><b id="sticky-capital-value">100 ₽</b></div>
+      <button class="icon-button" id="reset-button" type="button" aria-label="Начать заново" title="Начать заново"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 0 0-14.5-4L4 9m0 0V4m0 5h5m-5 4a8 8 0 0 0 14.5 4L20 15m0 0v5m0-5h-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow"><span class="eyebrow-line"></span> ЭКОНОМИЧЕСКАЯ СТРАТЕГИЯ</p>
+          <h1>Управляй домом.<br><span>Решай по делу.</span></h1>
+          <p class="hero-copy">Каждый сезон — новые заявки. Распоряжайся капиталом с умом: от твоих решений зависит, как долго продержится твоя управляющая компания.</p>
+        </div>
+        <div class="hero-building" aria-hidden="true">
+          <div class="sun"></div><div class="building-shadow"></div>
+          <div class="building-art"><div class="roof"></div><div class="building-body"><div class="building-cap"></div><div class="windows"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="entry"></div></div><div class="building-base"></div></div>
+          <div class="ground"></div><div class="hero-caption"><span class="caption-line"></span> ТВОЯ ПЕРВАЯ УПРАВЛЯЮЩАЯ КОМПАНИЯ</div>
+        </div>
+      </section>
+
+      <section class="dashboard" aria-label="Игровое поле">
+        <div class="dashboard-heading"><div><p class="section-label">ТЕКУЩАЯ СИТУАЦИЯ</p><h2>Дела компании</h2></div><div class="turn-pill"><span class="turn-icon">↗</span><span id="turn-label">ХОД 1</span></div></div>
+        <section class="timeline-panel" aria-label="Годовой таймлайн"><div class="timeline-title"><div><p class="section-label">КАЛЕНДАРЬ УПРАВЛЕНИЯ</p><h2 id="timeline-year">Год 1</h2></div><span class="phase-badge" id="phase-label">Найм и увольнение</span></div><div class="season-track" id="season-track"></div><div class="phase-track"><span class="phase-step active" data-phase="staffing">1 · Команда</span><span class="phase-step" data-phase="drawing">2 · Приём заявок</span><span class="phase-step" data-phase="resolving">3 · Выполнение</span><span class="phase-step" data-phase="legal">4 · Юрист</span><span class="phase-step" data-phase="annualReport">5 · Годовой отчёт</span><span class="phase-step" data-phase="bankruptcy">6 · Банкротство</span></div></section>
+        <section id="annual-report" class="annual-report" hidden></section>
+        <section id="bankruptcy-panel" class="bankruptcy-panel" hidden></section>
+        <div class="stats-grid">
+          <article class="stat-card capital-card"><div class="stat-top"><span>КАПИТАЛ КОМПАНИИ</span><span class="stat-symbol ruble">₽</span></div><div class="stat-value" id="capital-value">100 <span>₽</span></div><div class="stat-note"><span class="status-dot"></span> Уставный капитал</div><div class="capital-bar"><div id="capital-bar-fill"></div></div></article>
+          <article class="stat-card"><div class="stat-top"><span>ДОМОВ В УПРАВЛЕНИИ</span><span class="stat-symbol">⌂</span></div><div class="stat-value" id="houses-value">1 <span>дом</span></div><div class="stat-note">Портфель компании</div></article>
+          <article class="stat-card"><div class="stat-top"><span>ОБЩАЯ ПЛОЩАДЬ</span><span class="stat-symbol">▧</span></div><div class="stat-value" id="area-value">10 <span>м²</span></div><div class="stat-note">Расчётная площадь</div></article>
+          <article class="stat-card income-card"><div class="stat-top"><span>СБОР ЗА ХОД</span><span class="stat-symbol">↗</span></div><div class="stat-value" id="income-value">100 <span>₽</span></div><div class="stat-note">Тариф 10 ₽ × 10 м²</div></article>
+          <article class="stat-card collection-card"><div class="stat-top"><span>СОБИРАЕМОСТЬ · ПРОШЛЫЙ ПЕРИОД</span><span class="stat-symbol">%</span></div><div class="stat-value" id="collection-value">—</div><div class="stat-note">Все дома в управлении</div></article>
+          <article class="stat-card cancelled-card"><div class="stat-top"><span>ОТМЕНЕНО ЗА ГОД</span><span class="stat-symbol">×</span></div><div class="stat-value" id="cancelled-value">0 <span>заявок</span></div><div class="stat-note">Текущий год</div></article>
+          <article class="stat-card reputation-card"><div class="stat-top"><span>РЕПУТАЦИЯ ИГРОКА</span><span class="stat-symbol">✦</span></div><div class="stat-value reputation-value" id="reputation-value">+1</div><div class="stat-note">Личная репутация директора</div></article>
+          <article class="stat-card house-debt-card"><div class="stat-top"><span>ДОЛГИ ПО ПОРТФЕЛЮ</span><span class="stat-symbol">↙</span></div><div class="stat-value" id="house-debt-value">0 ₽</div></article>
+          <article class="stat-card upkeep-card"><div class="stat-top"><span>БАЗОВОЕ ОБСЛУЖИВАНИЕ</span><span class="stat-symbol">⌂</span></div><div class="stat-value" id="upkeep-value">30 <span>₽</span></div><div class="stat-note">Расход за ход</div></article>
+          <article class="stat-card"><div class="stat-top"><span>ЗАРПЛАТЫ</span><span class="stat-symbol">♙</span></div><div class="stat-value" id="payroll-value">0 <span>₽</span></div><div class="stat-note">Фонд за ход</div></article>
+        </div>
+        <section id="house-card" class="house-card" aria-label="Карточка дома"></section>
+        <section class="penalties-panel"><div class="panel-heading"><div><p class="section-label">ОТДЕЛЬНЫЙ РАСЧЁТ</p><h2>Штрафы и компенсации</h2></div><span class="penalty-total" id="penalties-summary">Обязательства: 0 ₽</span></div><div class="penalties-list" id="penalties-list"></div></section>
+        <section id="legal-panel" class="legal-panel" hidden></section>
+
+        <section class="market-panel">
+          <div class="panel-heading"><div><p class="section-label">НАЧАЛО ХОДА · НАЙМ И УВОЛЬНЕНИЕ</p><h2>Рынок труда</h2></div><span class="deck-badge"><span></span> <span id="staff-count">0 В ШТАТЕ</span></span></div>
+          <p class="market-copy" id="market-copy">Рынок предлагает исполнителей и специалистов. Без HR-менеджера за ход можно нанять двух сотрудников.</p>
+          <div class="market-grid" id="market-list"></div>
+          <div class="team-heading"><span>КОМАНДА</span><span id="team-payroll">Зарплатный фонд: 0 ₽ / ход</span></div>
+          <div class="team-list" id="team-list"></div>
+        </section>
+
+        <div class="turn-layout">
+          <section class="requests-panel"><div class="panel-heading"><div><p class="section-label">ПОВЕСТКА ДНЯ</p><h2>Заявки жильцов <span class="request-count" id="request-count">0 / 2</span></h2></div><span class="deck-badge"><span></span> КОЛОДА</span></div>
+            <div id="requests-list" class="requests-list"><div class="empty-state"><div class="empty-icon">↘</div><div><strong>Новый день начинается</strong><p>Открой заявки, чтобы узнать, что случилось в доме.</p></div></div></div>
+            <div class="panel-footer"><span id="requests-hint">На этот ход положено 2 заявки</span><span class="footer-dots"><i></i><i></i><i></i></span></div>
+          </section>
+          <aside class="actions-panel"><div class="actions-heading"><p class="section-label">ТВОЙ ХОД</p><span class="round-number" id="round-number">01</span></div><h2 id="action-title">С чего начнём?</h2><p class="action-copy" id="action-copy">Разбери входящие заявки. Каждое решение стоит денег, а на кону — репутация компании.</p>
+            <div class="action-buttons"><button class="primary-button" id="draw-button" type="button"><span>Принять заявки</span><span class="button-arrow">↗</span></button><button class="secondary-button" id="end-turn-button" type="button" disabled><span>Завершить ход</span><span>→</span></button></div>
+            <div class="rules-note"><span class="note-icon">i</span><p>В конце хода выплачиваются зарплаты, БО и собирается доля платежей по случайной <b>собираемости.</b></p></div>
+            <section class="phase-guide"><p class="section-label">ФАЗЫ ХОДА</p><ol><li data-guide-step="0"><span>1</span>Менеджмент сотрудников</li><li data-guide-step="1"><span>2</span>Приём заявок</li><li data-guide-step="2"><span>3</span>Распределение заявок</li><li data-guide-step="3"><span>4</span>Задачи специалистам</li><li data-guide-step="4"><span>5</span>Выплаты ЗП</li><li data-guide-step="5"><span>6</span>Сбор содержания</li></ol><p class="phase-guide-note">Зарплаты, базовое обслуживание и сбор платежей рассчитываются при завершении хода.</p></section>
+          </aside>
+        </div>
+        <section class="log-panel"><div class="log-heading"><div><p class="section-label">ИСТОРИЯ КОМПАНИИ</p><h2>Последние события</h2></div><button id="clear-log-button" class="text-button" type="button">Очистить</button></div><div id="event-log" class="event-log"><div class="log-entry"><span class="log-marker"></span><span>Компания открыла первый дом под управлением.</span><time>ХОД 1</time></div></div></section>
+      </section>
+      <section class="staff-reference" aria-label="Справочник сотрудников и заявок">
+        <h2>Справочник игры</h2>
+        <div class="reference-grid">
+          <table class="reference-table"><caption>Роли сотрудников</caption><thead><tr><th>Роль</th><th>Функции</th></tr></thead><tbody>
+            <tr><td>Юрист</td><td>Взыскивает задолженность дома или оспаривает штрафы и компенсации.</td></tr>
+            <tr><td>Бухгалтер</td><td>Сохраняет задолженность жильцов за прошлые периоды для последующего взыскания.</td></tr>
+            <tr><td>HR-менеджер</td><td>Снимает лимит найма, вводит двухходовой испытательный срок с половинной зарплатой и уменьшает премию за переработку вдвое.</td></tr>
+            <tr><td>Сантехник</td><td>Выполняет заявки категории «Сантехника»; продуктивность 3 трудозатраты за ход.</td></tr>
+            <tr><td>Электрик</td><td>Выполняет заявки категории «Электрика»; продуктивность 3 трудозатраты за ход.</td></tr>
+            <tr><td>Разнорабочий</td><td>Выполняет заявки категории «Общестрой»; продуктивность 5 трудозатрат за ход.</td></tr>
+            <tr><td>Дворник</td><td>Выполняет заявки категории «Уборка»; продуктивность 4 трудозатраты за ход.</td></tr>
+          </tbody></table>
+          <table class="reference-table"><caption>Типы заявок</caption><thead><tr><th>Тип</th><th>Описание</th></tr></thead><tbody>
+            <tr><td>Обычная</td><td>Стандартная заявка жильцов; её можно отменить или выполнить сотрудником/подрядчиком.</td></tr>
+            <tr><td>Аварийная</td><td>Срочная заявка, которую нельзя отменить.</td></tr>
+            <tr><td>Аварийная с ущербом</td><td>Нельзя отменить; создаёт отдельную компенсацию ущерба, выплачиваемую через блок штрафов и компенсаций.</td></tr>
+            <tr><td>Платная</td><td>При выполнении приносит доход и расходует продуктивность; материалы не требуются.</td></tr>
+          </tbody></table>
+        </div>
+      </section>
+    </main>
+    <footer><span>ДОМОУПРАВ <span class="footer-year">· БАЗОВЫЙ ПРОТОТИП</span></span><span>Каждый дом начинается с хорошего управления.</span></footer>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="game.js"></script>
+</body>
+</html>

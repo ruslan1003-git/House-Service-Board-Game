@@ -28,7 +28,7 @@ jobs:
       - name: Prepare public game files
         run: |
           mkdir site
-          cp index.html game.js style.css site/
+          cp index.html game.js game-config.js style.css site/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

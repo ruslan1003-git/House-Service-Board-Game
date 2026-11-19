@@ -13,7 +13,8 @@
 body { margin: 0; min-width: 350px; background: var(--paper); color: var(--ink); font-family: "DM Sans", sans-serif; -webkit-font-smoothing: antialiased; }
 button { font: inherit; }
 .game-shell { width: min(1120px, calc(100% - 72px)); margin: 0 auto; }
-.topbar { height: 72px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e4e2db; }
+.topbar { min-height: 72px; height: auto; display: flex; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #e4e2db; }
+.brand,.topbar-center,.topbar>.icon-button,.topbar>.settings-link { align-self: center; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: "Manrope", sans-serif; font-weight: 800; font-size: 19px; letter-spacing: -1px; }
 .brand-mark { width: 31px; height: 31px; border-radius: 9px; background: var(--green); color: var(--lime); display: grid; place-items: center; }
 .brand-mark svg { width: 25px; height: 25px; }.brand-dot { color: #a2c84f; }
@@ -203,6 +204,11 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 /* Portfolio properties are equal and displayed as individual cards below the property market. */
 .managed-homes-block { width:100%; margin:13px 0 0; }
 .managed-homes-heading { width:min(100%,780px); margin:0 auto 9px; }
+.managed-homes-block>summary.managed-homes-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; }
+.managed-homes-block>summary.managed-homes-heading::-webkit-details-marker { display:none; }
+.managed-homes-block>summary.managed-homes-heading::after { content:'⌄'; color:#81906d; font-size:18px; transition:transform .15s; }
+.managed-homes-block[open]>summary.managed-homes-heading::after { transform:rotate(180deg); }
+.managed-homes-heading>span { display:block; }
 .managed-homes-heading .section-label { margin:0 0 3px; }
 .managed-homes-heading h2 { margin:0; color:#334638; font:700 17px "Manrope",sans-serif; }
 .managed-homes-block #house-card.house-card { width:100%; max-width:none; margin:0; padding:0; border:0; background:transparent; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; align-items:start; }
@@ -283,6 +289,18 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .finance-line.debt-finance-line { display:block; }
 .debt-finance-line>span { display:block; margin-bottom:4px; }
 .debt-finance-line #house-debt-value { width:100%; font-size:14px; }
+.finance-line.finance-subtotal { margin-top:3px; border-top:1px solid #dce3d5; color:#34483a; font-weight:800; }
+.expected-change-line { padding-top:2px; color:#34483a; font-weight:700; }
+.expected-change-line .negative { color:#a34b37; }
+.portfolio-materials { display:grid; grid-template-columns:1fr auto; gap:4px 8px; padding-top:8px; border-top:1px solid #eceae3; color:#66705d; font-size:10px; }
+.portfolio-materials strong { grid-column:1/-1; color:#34483a; font-size:11px; }
+.portfolio-materials>b { grid-column:2; grid-row:2; color:#24432f; font-size:15px; }
+.portfolio-materials small { grid-column:1/-1; color:#7a7d72; font-size:9px; }
+.engineer-material-heading { margin-top:18px; }
+.engineer-quantity-label { display:flex; align-items:center; gap:6px; color:#6b7265; font-size:10px; }
+.engineer-quantity-label input { width:72px; min-width:0; padding:6px; border:1px solid #dfe4d8; border-radius:5px; color:#354438; font:inherit; }
+.engineer-quantity-label input[type="range"] { width:140px; padding:0; accent-color:#2c6348; }
+.engineer-total-cost { color:#354438; font-size:12px; white-space:nowrap; }
 .house-card { margin-top: 9px; padding: 11px; }
 .house-card-heading { margin-bottom: 7px; }
 .house-card-stats { gap: 5px; }
@@ -329,14 +347,29 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .sticky-balance { display: flex; align-items: center; gap: 9px; padding: 7px 11px; border: 1px solid #e0e5d4; border-radius: 7px; background: #f8faF2; }
 .sticky-balance span { color: #7c826f; font-size: 8px; font-weight: 800; letter-spacing: .7px; }
 .sticky-balance b { color: #3e5940; font: 800 15px "Manrope",sans-serif; white-space: nowrap; }
-.sticky-finances { display: flex; align-items: stretch; gap: 8px; }
+.sticky-finances { display: flex; align-items: stretch; align-self: stretch; gap: 8px; }
 .sticky-finances .sticky-balance { display: grid; grid-template-columns: auto auto; align-items: start; gap: 3px 8px; }
-.sticky-breakdown,.sticky-income,.sticky-prior-expenses { display: grid; grid-template-columns: auto auto; gap: 1px 8px; color: #777d70; font-size: 9px; line-height: 1.3; white-space: nowrap; }
+.sticky-season-summary { display: grid; grid-template-columns: auto auto; gap: 1px 8px; align-content: center; padding: 7px 10px; border: 1px solid #e0e5d4; border-radius: 7px; background: #f8faf2; color: #777d70; font-size: 9px; line-height: 1.3; white-space: nowrap; }
+.sticky-season-summary>strong,.sticky-season-summary>.season-net,.sticky-season-summary>.summary-expense-heading { grid-column: 1 / -1; }
+.sticky-season-summary>strong { color: #53634c; font-size: 9px; }
+.sticky-season-summary .season-net { color: #536f43; font: 800 14px "Manrope",sans-serif; }
+.sticky-season-summary .season-net.negative { color: #a54f3f; }
+.sticky-season-summary small { display: flex; justify-content: space-between; gap: 5px; font-size: inherit; }
+.sticky-season-summary small span { color: #536f43; }
+.sticky-season-summary .summary-expense-heading { margin-top: 2px; color: #7f634e; font-weight: 800; }
+.topbar.preparation-no-sticky-finances .sticky-finances { display: none; }
+.sticky-account-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; grid-column: 1 / -1; }
+.account-controls { display: grid; grid-template-columns: auto minmax(56px, 1fr) auto; align-items: center; gap: 4px; grid-column: 1 / -1; }
+.account-amount-label,.account-controls small { color: #756d5d; font-size: 9px; white-space: nowrap; }
+.account-amount-input { width: 100%; min-width: 0; padding: 4px 5px; border: 1px solid #ded8c9; border-radius: 5px; background: #fffefa; color: #25291f; font: inherit; font-size: 11px; }
+.account-controls button { padding: 5px 8px; border: 1px solid #d6dfca; border-radius: 5px; background: #f0f6e9; color: #3e5f36; font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.founder-sticky-balance { min-width: 210px; }
+.founder-account-actions { grid-column: 1 / -1; }
+.founder-account-actions .buy-reputation-button { margin: 2px 0; }
+.sticky-breakdown { display: grid; grid-template-columns: auto auto; gap: 1px 8px; color: #777d70; font-size: 9px; line-height: 1.3; white-space: nowrap; }
 .sticky-breakdown { grid-column: 1 / -1; }
-.sticky-breakdown strong,.sticky-income strong,.sticky-prior-expenses strong { grid-column: 1 / -1; color: #53634c; font-size: 9px; }
-.sticky-breakdown span,.sticky-income span { color: #53634c; }
-.sticky-income,.sticky-prior-expenses { align-content: center; padding: 7px 10px; border: 1px solid #e0e5d4; border-radius: 7px; background: #f8faf2; }
-.sticky-prior-expenses span { color: #7f634e; }
+.sticky-breakdown strong { grid-column: 1 / -1; color: #53634c; font-size: 9px; }
+.sticky-breakdown span { color: #53634c; }
 .team-list { grid-template-columns: 1fr; }
 .penalty-paid { border-color: #d5e4c7; background: #edf5e7; }
 .penalty-paid .penalty-info strong { color: #4f6d40; }
@@ -350,7 +383,7 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .request-info p,.request-cost>span:not(.done-check),.staff-solve-button,.overtime-unpaid-button,.solve-button,.request-cancel-button { font-size: 9px; }
 .phase-guide li,.phase-guide-note,.legal-option strong,.legal-option span,.legal-empty,.legal-complete,.legal-action-button,.legal-skip-button { font-size: 9px; }
 .penalty-total,.penalty-status,.pay-penalty-button,.penalties-empty { font-size: 9px; }
-@media (max-width: 600px) { .sticky-finances { gap: 4px; }.sticky-finances .sticky-balance { gap: 2px 5px; padding: 5px 6px; }.sticky-balance>span { display: none; }.sticky-balance b { font-size: 12px; }.sticky-breakdown,.sticky-income,.sticky-prior-expenses { gap: 1px 4px; font-size: 8px; }.sticky-breakdown strong,.sticky-income strong,.sticky-prior-expenses strong { font-size: 8px; }.sticky-income,.sticky-prior-expenses { padding: 5px 6px; }.topbar { gap: 6px; } }
+@media (max-width: 600px) { .sticky-finances { gap: 4px; }.sticky-finances .sticky-balance { gap: 2px 5px; padding: 5px 6px; }.sticky-balance>span { display: none; }.sticky-balance b { font-size: 12px; }.sticky-breakdown,.sticky-season-summary { gap: 1px 4px; font-size: 8px; }.sticky-breakdown strong,.sticky-season-summary>strong { font-size: 8px; }.sticky-season-summary { padding: 5px 6px; }.account-controls { grid-template-columns: auto minmax(45px,1fr); }.account-controls button { grid-column: 1 / -1; }.account-controls small { grid-column: 1 / -1; }.founder-sticky-balance { min-width: 0; }.topbar { gap: 6px; } }
 .staff-block { margin-top: 10px; padding-top: 9px; border-top: 1px solid #eeece5; overflow-x: auto; }
 .staff-block > h3 { margin: 0 0 7px; color: #77806b; font-size: 9px; letter-spacing: .9px; }
 .role-grid { display: grid; gap: 7px; }
@@ -375,17 +408,21 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 @media (max-width: 600px) {
   body { min-width: 320px; overflow-x: hidden; }
   .game-shell,.dev-platform .game-shell { width: calc(100% - 20px); max-width: none; margin: 0 10px; }
-  .topbar { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 7px; height: auto; min-height: 58px; padding: 7px 0; }
+  .topbar { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto auto; gap: 7px; height: auto; min-height: 58px; padding: 7px 0; }
   .brand { gap: 7px; font-size: 16px; letter-spacing: -.6px; }
   .brand-mark { width: 28px; height: 28px; }
   .brand-mark svg { width: 23px; height: 23px; }
   .topbar-center { display: none; }
+  .settings-link { grid-column: 1; grid-row: 2; justify-self: start; }
+  .mobile-version-link { grid-column: 2; grid-row: 2; justify-self: end; }
+  .topbar>#reset-button { grid-column: 2; grid-row: 1; justify-self: end; }
   .sticky-turn-status { position: sticky; top: 0; width: 100%; padding: 7px 10px; border-radius: 0 0 6px 6px; }
   .sticky-turn-status span,.sticky-turn-status b { font-size: 10px; }
   .topbar>.sticky-finances { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; width: 100%; }
+  .topbar>.sticky-finances { grid-row: 3; }
   .sticky-finances { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; width: 100%; }
-  .sticky-prior-expenses,.sticky-income,.sticky-finances .sticky-balance { flex: 1 1 0; min-width: 0; padding: 5px 5px; }
-  .sticky-breakdown,.sticky-income,.sticky-prior-expenses { white-space: normal; }
+  .sticky-season-summary,.sticky-finances .sticky-balance { flex: 1 1 0; min-width: 0; padding: 5px 5px; }
+  .sticky-breakdown,.sticky-season-summary { white-space: normal; }
   .sticky-balance { justify-self: end; min-width: 0; padding: 5px 5px; }
   .sticky-balance span { display: none; }
   .sticky-balance b { font-size: 13px; }
@@ -536,10 +573,10 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
   .phase-step { font-size: 8px; }
 }
 .sticky-finances { flex-shrink: 0; }
-.sticky-breakdown small,.sticky-income small,.sticky-prior-expenses small { display: flex; justify-content: space-between; gap: 5px; font-size: inherit; font-weight: 500; letter-spacing: 0; }
-.sticky-breakdown strong,.sticky-income strong,.sticky-prior-expenses strong { display: flex; justify-content: space-between; gap: 5px; font-weight: 700; }
-.sticky-balance .sticky-breakdown span,.sticky-income span,.sticky-prior-expenses span { display: inline; color: #536f43; font-size: inherit; letter-spacing: 0; }
-@media (max-width: 600px) { .sticky-breakdown,.sticky-income,.sticky-prior-expenses { font-size: 7px; }.sticky-breakdown strong,.sticky-income strong,.sticky-prior-expenses strong { font-size: 7px; } }
+.sticky-breakdown small,.sticky-season-summary small { display: flex; justify-content: space-between; gap: 5px; font-size: inherit; font-weight: 500; letter-spacing: 0; }
+.sticky-breakdown strong,.sticky-season-summary>strong { display: flex; justify-content: space-between; gap: 5px; font-weight: 700; }
+.sticky-balance .sticky-breakdown span,.sticky-season-summary span { display: inline; color: #536f43; font-size: inherit; letter-spacing: 0; }
+@media (max-width: 600px) { .sticky-breakdown,.sticky-season-summary { font-size: 7px; }.sticky-breakdown strong,.sticky-season-summary>strong { font-size: 7px; } }
 .financial-infographic { margin: 16px 0 12px; padding: 18px; border: 1px solid #e3e6d9; border-radius: 9px; background: #fffefa; }
 .financial-chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .financial-chart-heading h2 { margin: 0; color: #354638; font: 700 17px "Manrope",sans-serif; }
@@ -557,6 +594,7 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .financial-bar-fill.income { background: linear-gradient(90deg,#9fbd69,#72944a); }.financial-bar-fill.expense { background: linear-gradient(90deg,#e6b083,#c77a55); }
 @media (max-width: 600px) { .financial-infographic { padding: 13px 11px; }.financial-chart-heading { align-items: flex-start; flex-direction: column; gap: 6px; }.financial-chart-heading h2 { font-size: 15px; }.financial-summary { gap: 5px; }.financial-summary article { padding: 8px 6px; }.financial-summary article span { font-size: 8px; }.financial-summary article b { font-size: 12px; }.financial-bar-row { grid-template-columns: minmax(85px,110px) minmax(40px,1fr) 73px; gap: 6px; font-size: 8px; }.financial-bar-row>b { font-size: 8px; } }
 .game-preparation .hero,.game-preparation footer { display: none !important; }
+.game-preparation .sticky-turn-status { display: none !important; }
 .dashboard.preparing > :not(#market-panel) { display: none !important; }
 .dashboard.preparing #market-panel { margin-top: 0; padding: 22px; }
 .preparation-controls { margin: 0 0 17px; padding: 17px; border: 1px solid #e4e8d9; border-radius: 7px; background: #f7f9f0; }
@@ -709,3 +747,139 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 
 .market-reroll-button { margin: 0 0 10px; min-height: 38px; font-size: 11px; }
 .dev-tool-form label[hidden] { display: none !important; }
+.settings-link { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #dce4d5; border-radius: 7px; background: #f4f6ee; color: #38563f; font-size: 11px; font-weight: 700; text-decoration: none; }
+.settings-link:hover { background: #e9efdf; }
+.mobile-version-link { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #dce4d5; border-radius: 7px; background: #f4f6ee; color: #38563f; font-size: 11px; font-weight: 700; text-decoration: none; }
+.mobile-version-link:hover { background: #e9efdf; }
+.house-debt-symbol { display: inline-block; font-size: 13px; line-height: 1; }
+.house-info-table th[title="Общий износ"] { font-size: 13px; line-height: 1; }
+.house-info-table th[title="Долг жителей"] { font-size: 13px; }
+.compensation-court-notice { display:block; margin-top:3px; color:#9b6648; font-size:8px; line-height:1.35; }
+.penalties-compact .settlement-control { grid-template-columns:minmax(90px,1fr) auto; }
+.settlement-control { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(120px,1fr) auto; align-items: center; gap: 6px 10px; padding: 9px 0 3px; border-top: 1px solid #f0e6dd; }
+.settlement-control label { grid-column: 1 / -1; color: #756453; font-size: 9px; }
+.settlement-control input { width: 100%; accent-color: #9a7048; }
+.settlement-control small { grid-column: 1 / -1; color: #8b887e; font-size: 8px; }
+.settlement-button { padding: 7px 10px; border: 1px solid #e1c8af; border-radius: 5px; background: #f8efe6; color: #815837; font-size: 9px; font-weight: 700; cursor: pointer; }
+.settlement-button:disabled { opacity: .6; cursor: default; }
+@media(max-width:560px) { .settlement-control { grid-template-columns:minmax(80px,1fr); }.settlement-button { width:100%; } }
+.bad-game-toggle { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:12px; padding:10px; border:1px solid #ebd8c7; border-radius:7px; background:#fff8f0; color:#774c31; font-weight:700; }
+.bad-game-toggle input { accent-color:#a25336; }
+.bad-game-toggle small { flex-basis:100%; margin-left:24px; color:#806f60; font-size:10px; font-weight:500; }
+.founder-account { margin-top:7px; color:#5b6746; font-size:9px; }
+.withdraw-toggle,.buy-reputation-button,.withdraw-panel button { margin-top:6px; padding:6px 9px; border:1px solid #e5d6c8; border-radius:5px; background:#fbf4ec; color:#79563b; font-size:9px; font-weight:700; cursor:pointer; }
+.withdraw-panel { display:grid; gap:5px; margin-top:6px; padding:8px; border:1px solid #e9dfd1; border-radius:6px; background:#fffaf4; }
+.withdraw-panel label { display:grid; gap:4px; color:#776d5e; font-size:8px; }
+.withdraw-panel input { width:100%; min-width:0; padding:5px; border:1px solid #e5e0d5; border-radius:4px; }
+.withdraw-panel small { color:#8d7864; font-size:8px; }
+.penalties-header-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; }
+.penalty-toggle-button { padding:6px 8px; border:1px solid #e7e3da; border-radius:5px; background:#f8f7f2; color:#66705c; font-size:9px; cursor:pointer; }
+.penalty-written-off { opacity:.8; background:#f4f3ef; }
+.team-mood-satisfied { border-color:#d7e8c4; background:#f5f9ef; }
+.team-mood-dissatisfied { border-color:#ebd5c1; background:#fff9f2; }
+.team-mood-veryDissatisfied { border-color:#e5c0b7; background:#fff4f1; }
+.withhold-control { display:grid; grid-template-columns:1fr auto; gap:4px; color:#8c593f; font-size:8px; }
+.withhold-slider-track { position:relative; grid-column:1/-1; display:block; padding:2px 0 13px; }
+.withhold-control input[type="range"] { display:block; width:100%; margin:0; accent-color:#a75c42; }
+.withhold-zero-marker { position:absolute; top:3px; left:50%; z-index:1; transform:translateX(-50%); padding:0 2px; background:#fffefa; color:#59634f; font-size:8px; font-style:normal; font-weight:800; pointer-events:none; }
+.withhold-zero-marker::before { position:absolute; top:9px; left:50%; height:13px; border-left:1px solid #354538; content:""; }
+.withhold-mood-preview { color:#8c593f; font-size:9px; }
+.withheld-employee-total { color:#8f684e !important; }
+.team-member.team-deceased { border-color:#d9bcb4; background:#fff5f2; }
+.team-member.team-departing { border-color:#e6d9b9; background:#fffdf5; }
+.worker-status.deceased { color:#a54032; font-weight:800; white-space:normal; }
+.worker-status.departing { color:#a06b30; white-space:normal; }
+.fire-actions .selected { outline:2px solid #80994e; }
+.withheld-wages-panel { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; padding:9px; border:1px solid #ead9c8; border-radius:6px; background:#fff9f1; color:#72563d; font-size:10px; }
+.withheld-wages-panel button { padding:6px 9px; border:1px solid #e4d1bd; border-radius:5px; background:#f8eee3; color:#79563b; font-size:9px; font-weight:700; cursor:pointer; }
+.withheld-wages-panel button:disabled,.withdraw-panel button:disabled { opacity:.5; cursor:not-allowed; }
+.legal-case-actions { display:flex; flex-wrap:wrap; gap:5px; }
+.legal-actions-inline { display:flex !important; flex:0 0 auto; flex-wrap:nowrap; gap:5px; }
+.legal-actions-inline .legal-action-button { flex:1 1 auto; white-space:nowrap; }
+.bad-game-over h2 { color:#9b4935; }
+.penalty-court-case { border-color:#d7d1bd; background:#faf9f2; }
+
+.staff-disclosure { display:block; margin-top:10px; border-top:1px solid #efeee7; }
+.staff-disclosure>summary { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:10px 2px 8px; color:#53604e; font-size:10px; font-weight:800; letter-spacing:.8px; cursor:pointer; list-style:none; }
+.staff-disclosure>summary::-webkit-details-marker { display:none; }
+.staff-disclosure>summary::after { content:'⌄'; order:2; color:#81906d; font-size:14px; }
+.staff-disclosure[open]>summary::after { content:'⌃'; }
+.staff-disclosure>summary small { margin-left:auto; color:#929185; font-size:8px; font-weight:500; letter-spacing:0; }
+.market-disclosure .market-grid { padding-bottom:8px; }
+.team-disclosure .team-list { padding-bottom:8px; }
+.founder-actions { display:flex; flex-wrap:wrap; gap:5px; }
+.founder-transfer-panel { display:grid; gap:5px; margin-top:6px; padding:8px; border:1px solid #dce7d3; border-radius:6px; background:#f6faf1; }
+.founder-transfer-panel label { display:grid; gap:4px; color:#59694b; font-size:8px; }
+.founder-transfer-panel input { width:100%; min-width:0; padding:5px; border:1px solid #e1e6d9; border-radius:4px; }
+.founder-transfer-panel button,.founder-transfer-toggle { margin-top:5px; padding:6px 9px; border:1px solid #d9e3ce; border-radius:5px; background:#f2f7eb; color:#536b3e; font-size:9px; font-weight:700; cursor:pointer; }
+
+/* Keep the company balance legible inside the compact sticky panel. */
+#sticky-capital-value { display:inline-block !important; visibility:visible !important; opacity:1 !important; flex:0 0 auto; min-width:max-content; color:#24432f !important; font-size:16px !important; line-height:1.25; }
+.sticky-finances .sticky-balance:not(.founder-sticky-balance) { min-width:150px; }
+@media (max-width:600px) { #sticky-capital-value { font-size:14px !important; } .sticky-finances .sticky-balance:not(.founder-sticky-balance) { min-width:110px; } }
+.sticky-account-heading { display:flex !important; visibility:visible !important; opacity:1 !important; min-width:0; width:100%; }
+.sticky-account-heading>span { display:inline !important; visibility:visible !important; opacity:1 !important; color:#53634c !important; font-size:9px !important; line-height:1.3; letter-spacing:.65px; }
+#sticky-capital-value,#founder-account-value { display:inline-block !important; visibility:visible !important; opacity:1 !important; color:#24432f !important; font-size:16px !important; line-height:1.3; }
+.sticky-balance { align-content:start; overflow:visible; }
+.settings-link[hidden] { display:none !important; }
+.cancelled-request-pool { margin:10px 0 12px; border:1px solid #e8dfd6; border-radius:7px; background:#fbf8f3; }
+.cancelled-request-pool>summary { display:flex; justify-content:space-between; padding:9px 11px; color:#806956; font-size:10px; font-weight:700; cursor:pointer; list-style:none; }
+.cancelled-request-pool>summary::-webkit-details-marker { display:none; }
+.cancelled-pool-list { display:grid; gap:6px; padding:0 8px 8px; }
+.cancelled-pool-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px; border:1px solid #eee7df; border-radius:5px; background:#fffefa; }
+.cancelled-pool-item>div { display:grid; gap:3px; }
+.cancelled-pool-item strong { color:#655849; font-size:10px; }
+.cancelled-pool-item span { color:#8b8178; font-size:9px; }
+.restore-request-button { padding:6px 9px; border:1px solid #d7e2ca; border-radius:5px; background:#f0f5e9; color:#526a3d; font-size:9px; font-weight:700; cursor:pointer; }
+.restore-request-button:disabled { opacity:.5; cursor:default; }
+.repeat-request-badge { padding:2px 5px; border-radius:8px; background:#f4ead0; color:#98703a; font-size:8px; font-weight:700; }
+.request-cancelled-status .restore-request-button { margin-top:5px; }
+@media (max-width:600px) { #sticky-capital-value,#founder-account-value { font-size:13px !important; }.sticky-account-heading>span { font-size:7px !important; }.cancelled-pool-item { align-items:flex-start; flex-direction:column; }.cancelled-pool-item .restore-request-button { width:100%; text-align:center; } }
+
+.dev-complaint-control { display: grid; gap: 5px; color: #65705c; font-size: 9px; }
+.dev-complaint-control > span { display: flex; justify-content: space-between; align-items: center; }
+.dev-complaint-control b { color: #315c43; font-size: 10px; }
+.dev-complaint-control input { width: 100%; accent-color: #7d9d4e; }
+.dev-complaint-control small { color: #85877d; font-size: 8px; line-height: 1.4; }
+
+.founder-loan-panel { display:grid; grid-column:1 / -1; gap:6px; padding-top:7px; border-top:1px solid #e7eadd; color:#65705c; font-size:9px; }
+.founder-loan-panel>strong { color:#425d3e; font-size:10px; }
+.founder-loan-panel>label { display:grid; grid-template-columns:1fr auto; gap:3px 6px; align-items:center; }
+.founder-loan-panel input[type=range] { grid-column:1 / -1; width:100%; accent-color:#7d9d4e; }
+.founder-loan-panel>small,.founder-loan-status { color:#756d5d; font-size:8px; line-height:1.35; }
+.founder-loan-summary { padding-bottom:4px; font-weight:700; }
+.founder-loan-row { display:grid; gap:5px; padding:7px; border:1px solid #e7eadd; border-radius:5px; background:#fbfcf7; }
+.founder-loan-row>div { display:grid; gap:2px; }
+.founder-loan-row>div>b { color:#425d3e; font-size:9px; }
+.founder-loan-row>div>span { color:#756d5d; font-size:8px; }
+.founder-loan-row .founder-loan-payoff { width:max-content; min-height:27px; }
+.phase-required-expenses { display:grid; gap:4px; padding:7px 9px; border:1px solid #e5e9d8; border-radius:5px; background:#f6f8ed; color:#606b57; font-size:8px; line-height:1.35; }
+.phase-required-expenses[hidden] { display:none !important; }
+.phase-required-expenses>div { display:flex; justify-content:space-between; gap:8px; }
+.phase-required-expenses b { color:#344d38; white-space:nowrap; }
+.founder-loan-panel button { padding:6px 8px; border:1px solid #d6dfca; border-radius:5px; background:#f0f6e9; color:#3e5f36; font-size:9px; font-weight:700; cursor:pointer; }
+.founder-loan-panel button:disabled { opacity:.5; cursor:default; }
+@media (max-width:600px) { .founder-loan-panel { font-size:8px; } .founder-loan-panel>strong { font-size:9px; } }
+
+.founder-panel { display:grid; gap:10px; margin:12px 0 0; padding:14px 16px; border:1px solid #e0e7d5; border-radius:8px; background:#f8faf2; }
+.founder-panel[hidden] { display:none !important; }
+.founder-panel .panel-heading { margin:0; }
+.founder-panel .panel-heading h2 { margin:0; color:#354638; font:700 16px Manrope,sans-serif; }
+.founder-panel .section-label { margin:0 0 4px; }
+.founder-panel-balance { color:#68705e; font-size:10px; }
+.founder-panel-balance b { color:#315c43; font:800 15px Manrope,sans-serif; }
+.founder-tools { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.founder-tool,.founder-tools .founder-loan-panel { display:grid; align-content:start; gap:6px; min-width:0; padding:10px; border:1px solid #e7eadd; border-radius:6px; background:#fffefa; }
+.founder-tool h3,.founder-tools .founder-loan-panel>strong { margin:0; color:#425d3e; font:700 11px Manrope,sans-serif; }
+.founder-tool p,.founder-tool small { margin:0; color:#756d5d; font-size:9px; line-height:1.4; }
+.founder-tool>label { color:#65705c; font-size:9px; }
+.founder-tool>button,.founder-tools .founder-loan-panel button { width:100%; min-height:32px; }
+.founder-tools .founder-loan-panel { grid-column:auto; gap:7px; padding-top:10px; }
+.founder-loan-sticky-summary { grid-column:1 / -1; }
+@media (max-width:760px) { .founder-tools { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:500px) { .founder-panel { padding:11px; }.founder-panel .panel-heading { align-items:flex-start; gap:7px; flex-direction:column; }.founder-tools { grid-template-columns:1fr; } }
+
+.game-over-action-message { padding:10px 12px; border:1px solid #e5b9aa; border-radius:5px; background:#fff1eb; color:#934b38; font-size:10px; font-weight:800; line-height:1.45; }
+@media (max-width:600px) { .game-over-action-message { padding:10px; font-size:11px; } }
+
+.penalties-compact.agenda-disclosure { margin-top:12px; padding:10px 0 0; border:0; border-top:1px solid #eeece5; border-radius:0; background:transparent; box-shadow:none; }

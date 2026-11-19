@@ -223,7 +223,7 @@ window.DOMOUPRAV_CONFIG = {
       "category": "Общестрой",
       "salary": 20,
       "productivity": 5,
-      "icon": "🛠️",
+      "icon": "🔨",
       "kind": "executor"
     },
     "lawyer": {
@@ -261,6 +261,15 @@ window.DOMOUPRAV_CONFIG = {
       "icon": "⚙️",
       "kind": "specialist",
       "detail": "Снижает число проблем при сезонном осмотре на одну"
+    },
+    "marketer": {
+      "name": "Маркетолог",
+      "category": null,
+      "salary": 5,
+      "productivity": 0,
+      "icon": "📣",
+      "kind": "specialist",
+      "detail": "Повышает репутацию на годовом отчёте"
     }
   },
   "employees": [
@@ -385,7 +394,7 @@ window.DOMOUPRAV_CONFIG = {
       "productivity": 0,
       "salary": 20,
       "bonus": "raiseCollection",
-      "bonusDescription": "Повышает собираемость на 10 п.п., максимум до 100%"
+      "bonusDescription": "Повышает собираемость на 10% по каждому дому, максимум до 100% на дом"
     },
     {
       "role": "accountant",
@@ -393,7 +402,7 @@ window.DOMOUPRAV_CONFIG = {
       "productivity": 0,
       "salary": 20,
       "bonus": "discountMaintenance",
-      "bonusDescription": "Снижает базовое обслуживание домов на 20%"
+      "bonusDescription": "Снижает базовое обслуживание домов на 60%"
     },
     {
       "role": "accountant",
@@ -415,13 +424,35 @@ window.DOMOUPRAV_CONFIG = {
       "productivity": 0,
       "salary": 20,
       "bonus": "discountProblemMaterials",
-      "bonusDescription": "Материалы для решения проблем дешевле на 30%"
+      "bonusDescription": "Материалы для заявок и решения проблем дешевле на 40%"
     },
     {
       "role": "engineer",
       "name": "Макаров Ш. И.",
       "productivity": 0,
       "salary": 15
+    },
+    {
+      "role": "marketer",
+      "name": "Назаров Ю. В.",
+      "productivity": 0,
+      "salary": 5
+    },
+    {
+      "role": "marketer",
+      "name": "Баранова Я. Е.",
+      "productivity": 0,
+      "salary": 10,
+      "bonus": "noOverdueReputation",
+      "bonusDescription": "+1 репутация за ход, если нет просроченных заявок"
+    },
+    {
+      "role": "marketer",
+      "name": "Крылов Я. А.",
+      "productivity": 0,
+      "salary": 15,
+      "bonus": "annualReputationThree",
+      "bonusDescription": "+3 дополнительная репутация за каждый годовой отчёт"
     }
   ],
   "problemCardCounts": {
@@ -475,7 +506,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Входная дверь не закрывается самостоятельно и хлопает от сквозняка.",
       "labor": 2,
       "cost": 30,
-      "materialCost": 8,
+      "materialCost": 5,
       "icon": "⌑"
     },
     {
@@ -493,7 +524,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Вода медленно уходит в кухонной раковине на первом этаже.",
       "labor": 3,
       "cost": 40,
-      "materialCost": 10,
+      "materialCost": 5,
       "icon": "⌁"
     },
     {
@@ -502,7 +533,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Жильцы не могут открыть входную дверь с домофона.",
       "labor": 2,
       "cost": 35,
-      "materialCost": 6,
+      "materialCost": 5,
       "icon": "⌗"
     },
     {
@@ -511,7 +542,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "На дорожке у входа появилась небольшая выбоина.",
       "labor": 3,
       "cost": 45,
-      "materialCost": 12,
+      "materialCost": 5,
       "icon": "⌖"
     },
     {
@@ -520,7 +551,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "На лестничной площадке разбито стекло, в подъезде холодно.",
       "labor": 3,
       "cost": 50,
-      "materialCost": 15,
+      "materialCost": 5,
       "icon": "▦"
     },
     {
@@ -547,7 +578,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Повреждённый провод искрит на лестничной площадке — нужна срочная изоляция.",
       "labor": 2,
       "cost": 45,
-      "materialCost": 8,
+      "materialCost": 5,
       "type": "emergency",
       "icon": "ϟ"
     },
@@ -557,7 +588,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Вода быстро заливает техническое помещение. Аварийная бригада нужна немедленно.",
       "labor": 3,
       "cost": 55,
-      "materialCost": 15,
+      "materialCost": 5,
       "type": "emergency",
       "icon": "⌁"
     },
@@ -567,7 +598,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Авария повредила отделку квартиры. Требуется устранить протечку и компенсировать ущерб жильцам.",
       "labor": 3,
       "cost": 60,
-      "materialCost": 15,
+      "materialCost": 5,
       "damageCompensation": 80,
       "type": "emergencyDamage",
       "icon": "⌁"
@@ -578,7 +609,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Жилец заказал монтаж дополнительной розетки.",
       "labor": 2,
       "cost": 30,
-      "materialCost": 8,
+      "materialCost": 0,
       "payout": 65,
       "type": "paid",
       "icon": "✳"
@@ -589,7 +620,7 @@ window.DOMOUPRAV_CONFIG = {
       "description": "Платная замена смесителя по заявке собственника.",
       "labor": 2,
       "cost": 35,
-      "materialCost": 12,
+      "materialCost": 0,
       "payout": 75,
       "type": "paid",
       "icon": "⌁"
@@ -619,6 +650,9 @@ window.DOMOUPRAV_CONFIG = {
     "collectionMaxPercent": 100,
     "requestsPerHousePerSeason": 2,
     "contractorMarkup": 10,
+    "materialCostPerUnit": 2,
+    "materialMarketPriceMultiplier": 2,
+    "engineerMaterialPurchaseUnits": 20,
     "capitalBarScale": 500,
     "capitalBarFillMaxPercent": 100
   },
@@ -688,9 +722,14 @@ window.DOMOUPRAV_CONFIG = {
     "lawyerReductionSuccessChance": 0.5,
     "unpaidFiringReputationPenalty": 1,
     "unpaidFiringComplaintChanceMax": 0.5,
+    "employeeDepartureLowReputationThreshold": -15,
+    "employeeDepartureLowReputationChance": 0.2,
+    "employeeOutsideOfferChance": 0.05,
+    "employeeHealthDepartureChance": 0.02,
+    "employeeDeathChance": 0.001,
+    "employeeRetentionSalaryIncreasePercent": 20,
     "laborInspectionFineSalaryMultiplier": 3,
-    "cancellationReputationPenaltyEvery": 3,
-    "unresolvedEmergencyReputationPenalty": 1,
+    "cancellationReputationPenaltyEvery": 5,
     "noCancellationYearReputationBonus": 1,
     "noDebtYearReputationBonus": 1,
     "clearedProblemCategoryReputationBonus": 1,
@@ -705,9 +744,25 @@ window.DOMOUPRAV_CONFIG = {
     "hrExpandedMarketExecutors": 2,
     "hrExpandedMarketSpecialists": 2,
     "problemLaborReductionWithEngineer": 2,
-    "engineerMaterialDiscountPercent": 30,
+    "engineerMaterialDiscountPercent": 40,
     "accountantCollectionBonusPercent": 10,
-    "accountantMaintenanceDiscountPercent": 20
+    "accountantMaintenanceDiscountPercent": 60,
+    "compensationPretrialTurns": 8,
+    "compensationCourtEscalationChance": 0.1,
+    "compensationCourtEscalationIncrease": 0.05,
+    "compensationCourtAmountMultiplier": 1.5,
+    "compensationTrialTurns": 4,
+    "compensationPaymentTurns": 4,
+    "compensationDelayBaseChance": 0.9,
+    "compensationDelayChanceDropByLegalStrength": [0.3, 0.2, 0.1],
+    "badGameWithdrawalFeePercent": 40,
+    "badGameTaxAuditChance": 0.01,
+    "badGameForgeryLawsuitChance": 0.2,
+    "badGameCourtWinChance": 0.05,
+    "badGameDelayBaseChance": 0.9,
+    "badGameReputationPrice": 20,
+    "reputationHouseExitThreshold": -10,
+    "reputationHouseExitChance": 0.5
   },
   "seasonIcons": [
     "☀️",

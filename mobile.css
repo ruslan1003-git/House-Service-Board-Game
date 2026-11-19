@@ -1,0 +1,94 @@
+* { -webkit-tap-highlight-color: transparent; }
+.mobile-mode [hidden] { display: none !important; }
+html { background: #f3f1eb; }
+body.mobile-mode { margin: 0; padding: 0 0 calc(94px + env(safe-area-inset-bottom)); background: #f3f1eb; font-size: 16px; }
+.mobile-mode .game-shell { width: 100%; max-width: 620px; margin: 0 auto; padding: 0 14px; }
+.mobile-mode .topbar { position: sticky; z-index: 20; top: 0; width: auto; height: auto; min-height: 54px; margin: 0 -14px; padding: 8px 14px; border-bottom: 1px solid #e2ded2; background: rgba(248,247,242,.96); backdrop-filter: blur(12px); }
+.mobile-mode .brand { font-size: 18px; }
+.mobile-mode .brand-mark { width: 32px; height: 32px; }
+.mobile-mode .topbar-center, .mobile-mode .settings-link, .mobile-mode .mobile-version-link, .mobile-mode .sticky-finances, .mobile-mode #reset-button, .mobile-mode #sticky-turn-status, .mobile-mode .desktop-main, .mobile-mode footer { display: none !important; }
+.mobile-mode .mobile-header { position: sticky; z-index: 19; top: 54px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -14px; padding: 10px 16px; border-bottom: 1px solid #d9ddcc; background: #f8f8f2; box-shadow: 0 4px 12px rgba(27,43,32,.06); }
+.mobile-mode .mobile-header div { display: grid; gap: 2px; }
+.mobile-mode #mobile-season { color: #73845e; font-size: 12px; }
+.mobile-mode #mobile-phase { color: #263c31; font-size: 16px; }
+.mobile-mode .mobile-budget { padding: 7px 10px; border-radius: 12px; background: #e9eedf; color: #244b38; white-space: nowrap; }
+.mobile-mode .mobile-main { display: block; min-height: calc(100dvh - 135px); padding: 14px 0 20px; }
+.mobile-mode .mobile-stage-content { display: grid; gap: 12px; width: 100%; }
+.mobile-mode .mobile-stage-content > section, .mobile-mode .mobile-stage-content > details, .mobile-mode .mobile-stage-content > article, .mobile-mode .mobile-stage-content > .market-panel { width: 100%; max-width: none; margin: 0; box-sizing: border-box; }
+.mobile-mode .mobile-nav { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 12px; padding: 11px max(16px, calc((100vw - 590px)/2)) calc(11px + env(safe-area-inset-bottom)); border-top: 1px solid #d9ddcc; background: rgba(248,247,242,.97); backdrop-filter: blur(14px); }
+.mobile-mode .mobile-nav button, .mobile-mode .mobile-staff-tabs button { min-height: 48px; border: 1px solid #d7ddcb; border-radius: 14px; background: #fffef9; color: #294536; font: inherit; font-size: 16px; font-weight: 700; touch-action: manipulation; }
+.mobile-mode .mobile-nav button:disabled { opacity: .45; }
+.mobile-mode .mobile-nav[hidden], .mobile-mode .mobile-nav button[hidden] { display: none !important; }
+.mobile-mode .mobile-nav-arrow { font-size: 30px !important; line-height: 1; }
+.mobile-mode .mobile-nav-confirm { border-color: #234c39 !important; background: #234c39 !important; color: #fff !important; }
+.mobile-mode .mobile-nav-confirm:active, .mobile-mode .mobile-nav-arrow:active, .mobile-mode .mobile-staff-tabs button:active { transform: scale(.98); }
+.mobile-mode .mobile-staff-tabs { position: sticky; z-index: 18; top: 112px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 -2px 10px; padding: 8px 0 2px; background: #f3f1eb; }
+.mobile-mode .mobile-staff-tabs[hidden] { display: none !important; }
+.mobile-mode .mobile-staff-tabs button.active { border-color: #234c39; background: #e8eee2; }
+.mobile-mode .mobile-carousel-item:not(.mobile-carousel-current) { display: none !important; }
+.mobile-mode .mobile-prompt { min-height: 240px; display: grid; align-content: center; justify-items: center; padding: 26px; border: 1px solid #e2ded2; border-radius: 20px; background: #fffefa; text-align: center; }
+.mobile-mode .mobile-prompt > span { font-size: 44px; }
+.mobile-mode .mobile-prompt h2 { margin: 12px 0 6px; color: #263c31; }
+.mobile-mode .mobile-prompt p { max-width: 30ch; margin: 0; color: #66736b; line-height: 1.5; }
+
+/* Preparation and staff selection */
+.mobile-mode #mobile-stage-content .market-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid #e2ded2; border-radius: 18px; background: #fffefa; }
+.mobile-mode .preparation-controls { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: #f6f7f0; }
+.mobile-mode .preparation-controls h2, .mobile-mode .preparation-controls p { margin: 0; }
+.mobile-mode .preparation-controls > label:not(.bad-game-toggle) { margin: 4px 0 -7px; color: #435349; font-size: 13px; font-weight: 700; }
+.mobile-mode .preparation-controls input, .mobile-mode .preparation-controls select { width: 100%; min-height: 45px; padding: 9px 11px; border: 1px solid #d9ddcc; border-radius: 10px; background: #fff; font: inherit; }
+.mobile-mode #market-panel > .panel-heading { margin: 0; }
+.mobile-mode #market-panel > .market-copy { margin: 0; font-size: 13px; }
+.mobile-mode #market-disclosure, .mobile-mode #team-disclosure { width: 100%; margin: 0; }
+.mobile-mode.mobile-show-market #team-disclosure, .mobile-mode.mobile-show-team #market-disclosure { display: none !important; }
+.mobile-mode #market-list, .mobile-mode #team-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.mobile-mode .role-grid { grid-template-columns: 1fr; }
+.mobile-mode .staff-role.role-vacant { display: none; }
+.mobile-mode .worker-card, .mobile-mode .team-member { grid-template-columns: 42px minmax(0,1fr); gap: 10px; padding: 14px; border-radius: 15px; }
+.mobile-mode .worker-card .hire-button, .mobile-mode .team-member .fire-actions { grid-column: 1 / -1; width: 100%; }
+.mobile-mode .worker-card button, .mobile-mode .team-member button { min-height: 44px; font-size: 14px; }
+.mobile-mode .worker-info strong { font-size: 15px; white-space: normal; }
+.mobile-mode .worker-info span { font-size: 13px; line-height: 1.4; white-space: normal; }
+.mobile-mode .staff-disclosure summary { font-size: 15px; }
+.mobile-mode .staff-disclosure summary small { font-size: 12px; }
+.mobile-mode .team-role, .mobile-mode .staff-role { width: 100%; }
+.mobile-mode .mobile-courts-step .penalties-panel { padding: 14px; border: 1px solid #e2ded2; border-radius: 18px; background: #fffefa; }
+
+/* Keep only the active decision panel on screen. */
+.mobile-mode .inspection-panel, .mobile-mode .problem-panel, .mobile-mode .legal-panel, .mobile-mode .annual-report, .mobile-mode .bankruptcy-panel, .mobile-mode .requests-panel, .mobile-mode .penalties-panel, .mobile-mode .oss-agenda-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid #e2ded2; border-radius: 18px; background: #fffefa; }
+.mobile-mode .inspection-panel[hidden], .mobile-mode .problem-panel[hidden], .mobile-mode .legal-panel[hidden], .mobile-mode .annual-report[hidden], .mobile-mode .bankruptcy-panel[hidden] { display: none !important; }
+.mobile-mode .request-card, .mobile-mode .problem-repair-card, .mobile-mode .legal-option, .mobile-mode .penalty-row, .mobile-mode .inspection-card { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; padding: 14px; border: 1px solid #e7e3d9; border-radius: 15px; background: #fffefa; }
+.mobile-mode .request-icon { display: none; }
+.mobile-mode .request-info, .mobile-mode .worker-info, .mobile-mode .penalty-info { min-width: 0; }
+.mobile-mode .request-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.mobile-mode .request-meta > * { font-size: 12px; }
+.mobile-mode .request-info h3 { margin: 8px 0 4px; font-size: 18px; }
+.mobile-mode .request-info p, .mobile-mode .request-material-line { margin: 0; font-size: 14px; line-height: 1.45; }
+.mobile-mode .request-cost, .mobile-mode .request-actions, .mobile-mode .problem-work-actions, .mobile-mode .problem-repair-actions, .mobile-mode .problem-material-actions { display: grid; gap: 8px; }
+.mobile-mode .request-actions button, .mobile-mode .problem-repair-card button, .mobile-mode .legal-option button, .mobile-mode .penalty-row button, .mobile-mode .inspection-panel button { min-height: 44px; text-align: left; }
+.mobile-mode .request-action-row { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 8px; }
+.mobile-mode .staff-solve-button, .mobile-mode .solve-button, .mobile-mode .overtime-unpaid-button { width: 100%; }
+.mobile-mode .problem-work-row { display: grid; gap: 8px; }
+.mobile-mode .problem-work-actions { grid-template-columns: 1fr; }
+.mobile-mode .legal-options { display: grid; gap: 10px; }
+.mobile-mode .penalty-info strong, .mobile-mode .problem-repair-main strong, .mobile-mode .legal-option strong { font-size: 15px; line-height: 1.4; }
+.mobile-mode .penalty-info span, .mobile-mode .penalty-status, .mobile-mode .problem-repair-main span, .mobile-mode .legal-option p { font-size: 13px; line-height: 1.45; }
+.mobile-mode .penalty-row { grid-template-columns: 30px minmax(0,1fr); }
+.mobile-mode .penalty-row .penalty-amount, .mobile-mode .penalty-row .penalty-status, .mobile-mode .penalty-row button, .mobile-mode .penalty-row .settlement-control { grid-column: 2; }
+.mobile-mode .penalties-header-actions { flex-wrap: wrap; }
+.mobile-mode .penalties-header-actions .penalty-toggle-button { display: none; }
+.mobile-mode .requests-panel > .panel-heading, .mobile-mode .requests-panel > .penalties-compact, .mobile-mode .requests-panel > #oss-agenda-panel:not([hidden]) { display: none !important; }
+.mobile-mode .requests-panel > #problem-panel[hidden], .mobile-mode .requests-panel > #legal-panel[hidden], .mobile-mode .requests-panel > #requests-disclosure[hidden] { display: none !important; }
+.mobile-mode #requests-disclosure { border: 0; padding: 0; background: transparent; }
+.mobile-mode #requests-disclosure > summary, .mobile-mode #requests-disclosure > .panel-footer { display: none; }
+.mobile-mode #requests-list { display: grid; gap: 10px; }
+.mobile-mode #requests-list > .empty-state { padding: 20px 10px; }
+.mobile-mode .team-member .withhold-control { grid-column: 1 / -1; }
+.mobile-mode .team-member input[type="range"], .mobile-mode .legal-option input[type="range"], .mobile-mode .settlement-slider { min-height: 38px; touch-action: pan-x; }
+.mobile-mode .penalty-toggle-button { min-height: 42px; }
+.mobile-mode .real-estate-market, .mobile-mode .lower-reference-panels, .mobile-mode .phase-guide, .mobile-mode .rules-note, .mobile-mode .financial-infographic { display: none !important; }
+
+@media (min-width: 700px) {
+  .mobile-mode .game-shell { padding-right: 22px; padding-left: 22px; }
+  .mobile-mode .topbar, .mobile-mode .mobile-header { margin-right: -22px; margin-left: -22px; }
+}

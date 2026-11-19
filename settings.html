@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Настройки игры — Домоуправ</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main class="settings-shell">
+    <header class="page-header">
+      <a class="back-link" href="index.html">← Вернуться в игру</a>
+      <p class="eyebrow">ДОМОУПРАВ · ЛОКАЛЬНЫЕ НАСТРОЙКИ</p>
+      <h1>Настройки игры</h1>
+      <p class="intro">Меняйте правила, цены, дома и колоды через поля ниже. Перед сохранением страница автоматически создаст резервную копию текущего файла.</p>
+    </header>
+
+    <section class="save-panel" aria-label="Сохранение настроек">
+      <div>
+        <strong id="save-state">Загрузка настроек…</strong>
+        <p id="save-help">Для первой записи выберите папку, где лежит index.html.</p>
+      </div>
+      <div class="save-actions">
+        <button id="choose-folder" class="button secondary" type="button">Выбрать папку игры</button>
+        <button id="reset-defaults" class="button secondary" type="button">Вернуть значения по умолчанию</button>
+        <button id="save-config" class="button primary" type="button">Сохранить изменения</button>
+      </div>
+    </section>
+
+    <div id="config-form" class="config-form"></div>
+    <footer><p>Это локальная страница. Изменения применяются к файлу <code>game-config.js</code> на этом компьютере. Они не отправляются на GitHub автоматически.</p></footer>
+  </main>
+  <script src="game-config.default.js"></script>
+  <script>window.DOMOUPRAV_DEFAULTS = structuredClone(window.DOMOUPRAV_CONFIG);</script>
+  <script src="game-config.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

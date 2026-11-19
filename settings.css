@@ -1,0 +1,45 @@
+:root { color-scheme: light; --ink:#26372d; --muted:#6f786d; --line:#e2e5da; --paper:#fffefa; --green:#24583e; --soft:#f3f5ed; --orange:#aa632b; }
+* { box-sizing:border-box; }
+body { margin:0; background:#f2f1eb; color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+.settings-shell { width:min(1100px,calc(100% - 32px)); margin:30px auto 60px; }
+.page-header { margin-bottom:20px; }
+.back-link { color:var(--green); font-size:14px; font-weight:650; text-decoration:none; }
+.eyebrow { margin:25px 0 3px; color:#818878; font-size:11px; font-weight:750; letter-spacing:.14em; }
+h1 { margin:0; font:700 clamp(28px,5vw,42px)/1.15 Georgia,serif; }
+.intro { max-width:760px; color:var(--muted); }
+.save-panel { position:sticky; top:10px; z-index:5; display:flex; justify-content:space-between; align-items:center; gap:16px; margin:20px 0; padding:15px 17px; border:1px solid #dce3d4; border-radius:12px; background:#fbfcf7f2; box-shadow:0 8px 25px #28372812; backdrop-filter:blur(8px); }
+.save-panel p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+.save-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.button { min-height:40px; padding:9px 13px; border:1px solid #d8dfd2; border-radius:8px; font:650 13px system-ui,sans-serif; cursor:pointer; }
+.button:disabled { opacity:.55; cursor:wait; }
+.button.primary { background:var(--green); color:white; border-color:var(--green); }
+.button.secondary { background:#fffefa; color:#455447; }
+.config-form { display:grid; gap:14px; }
+.config-section { min-width:0; margin:0; padding:17px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+.config-section>legend { padding:0 8px; color:#34543d; font-size:18px; font-weight:750; }
+.config-section .config-section { margin-top:12px; padding:13px; background:#fbfbf7; }
+.config-section .config-section>legend { font-size:15px; }
+.array-section { padding:12px 14px; }
+.array-section>summary { color:#385640; font-size:15px; font-weight:750; cursor:pointer; }
+.array-section[open]>summary { margin-bottom:11px; }
+.array-section .array-section { padding:10px; }
+.array-section .array-section>summary { font-size:13px; }
+.fields-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:11px; }
+.field { display:grid; align-content:start; gap:5px; min-width:0; color:#465247; font-size:13px; font-weight:650; }
+.field input:not([type=checkbox]),.field textarea,.field select { width:100%; min-height:39px; padding:8px 10px; border:1px solid #dfe3d9; border-radius:7px; background:#fff; color:#27352b; font:14px system-ui,sans-serif; }
+.field textarea { min-height:76px; resize:vertical; }
+.field input:focus,.field textarea:focus { outline:2px solid #8da77a; border-color:transparent; }
+.field small { color:#878d81; font-size:11px; font-weight:450; }
+.boolean-field { display:flex; align-items:center; gap:9px; min-height:39px; padding:7px 10px; border:1px solid #e7e8e1; border-radius:7px; background:#fff; }
+.boolean-field input { width:17px; height:17px; accent-color:var(--green); }
+.array-list { display:grid; gap:9px; }
+.array-item { position:relative; min-width:0; padding:12px; border:1px solid #e7e9e1; border-radius:9px; background:#fff; }
+.array-item>.item-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; color:#66745f; font-size:12px; font-weight:750; }
+.remove-item,.add-item { padding:6px 9px; border:1px solid #e4e6dd; border-radius:6px; background:#fafaf6; color:#616c5d; font:600 12px system-ui,sans-serif; cursor:pointer; }
+.remove-item:hover { color:#a24737; border-color:#e6c6bd; }
+.add-item { justify-self:start; margin-top:5px; color:var(--green); }
+.config-section .array-list .config-section { margin:0; }
+.empty-array { color:#858b80; font-size:13px; }
+footer { margin-top:18px; color:#727b70; font-size:13px; }
+code { padding:2px 5px; border-radius:4px; background:#e9ece3; }
+@media(max-width:700px) { .settings-shell { width:min(100% - 20px,1100px); margin:15px auto 35px; }.save-panel { position:static; align-items:stretch; flex-direction:column; }.save-actions { display:grid; grid-template-columns:1fr; }.button { width:100%; }.config-section { padding:13px; }.fields-grid { grid-template-columns:1fr; } }

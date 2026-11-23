@@ -245,10 +245,10 @@
     normalized.primaryCollectionStats = { ...normalized.collectionStats, ...(saved.primaryCollectionStats || {}) };
     normalized.primaryLastCollectionRate = Number.isFinite(saved.primaryLastCollectionRate) ? saved.primaryLastCollectionRate : (Number.isFinite(saved.lastCollectionRate) ? saved.lastCollectionRate : null);
     Object.keys(INITIAL_STATE.collectionStats).forEach(key => { if (!Number.isFinite(normalized.collectionStats[key])) normalized.collectionStats[key] = 0; });
-    normalized.seasonFinancials = { upkeep: 0, salaries: 0, paidIncome: 0, problemRepairs: 0, ...(saved.seasonFinancials || {}) };
+    normalized.seasonFinancials = { upkeep: 0, salaries: 0, paidIncome: 0, problemRepairs: 0, contractors: 0, materials: 0, ...(saved.seasonFinancials || {}) };
     Object.keys(normalized.seasonFinancials).forEach(key => { if (!Number.isFinite(normalized.seasonFinancials[key])) normalized.seasonFinancials[key] = 0; });
     const savedSeasonFinancials = saved.lastSeasonFinancials || {};
-    normalized.lastSeasonFinancials = { collection: 0, paidIncome: Number.isFinite(savedSeasonFinancials.paidIncome) ? savedSeasonFinancials.paidIncome : (Number.isFinite(savedSeasonFinancials.paidRequests) ? savedSeasonFinancials.paidRequests : 0), upkeep: 0, salaries: 0, fines: 0, compensation: 0, problemRepairs: 0, ...savedSeasonFinancials };
+    normalized.lastSeasonFinancials = { collection: 0, paidIncome: Number.isFinite(savedSeasonFinancials.paidIncome) ? savedSeasonFinancials.paidIncome : (Number.isFinite(savedSeasonFinancials.paidRequests) ? savedSeasonFinancials.paidRequests : 0), upkeep: 0, salaries: 0, fines: 0, compensation: 0, problemRepairs: 0, contractors: 0, materials: 0, averageTariff: 0, ...savedSeasonFinancials };
     if (!Number.isFinite(normalized.lastSeasonFinancials.paidIncome)) normalized.lastSeasonFinancials.paidIncome = Number.isFinite(savedSeasonFinancials.paidRequests) ? savedSeasonFinancials.paidRequests : 0;
     Object.keys(normalized.lastSeasonFinancials).forEach(key => { if (!Number.isFinite(normalized.lastSeasonFinancials[key])) normalized.lastSeasonFinancials[key] = 0; });
     if (saved.lastSeasonFinancials && !Number.isFinite(saved.lastSeasonFinancials.paidIncome) && Number.isFinite(saved.lastSeasonFinancials.paidRequests)) normalized.lastSeasonFinancials.paidIncome = saved.lastSeasonFinancials.paidRequests;
@@ -361,7 +361,7 @@
       normalized.houseRequestCounts[home.name] = { accepted: legacySingleHome ? Math.max(accepted, normalized.totals.accepted) : accepted, completed: legacySingleHome ? Math.max(completed, normalized.totals.completed) : completed };
     });
     normalized.seasonFinancials.paidIncome = Number.isFinite(normalized.seasonFinancials.paidIncome) ? normalized.seasonFinancials.paidIncome : 0;
-    normalized.seasonFinancials.problemRepairs = Number.isFinite(normalized.seasonFinancials.problemRepairs) ? normalized.seasonFinancials.problemRepairs : 0;
+    ["problemRepairs", "contractors", "materials"].forEach(key => { if (!Number.isFinite(normalized.seasonFinancials[key])) normalized.seasonFinancials[key] = 0; });
     normalized.lastSeasonFinancials.paidIncome = Number.isFinite(normalized.lastSeasonFinancials.paidIncome) ? normalized.lastSeasonFinancials.paidIncome : 0;
     normalized.lastSeasonFinancials.fines = Number.isFinite(normalized.lastSeasonFinancials.fines) ? normalized.lastSeasonFinancials.fines : 0;
     normalized.lastSeasonFinancials.compensation = Number.isFinite(normalized.lastSeasonFinancials.compensation) ? normalized.lastSeasonFinancials.compensation : 0;
@@ -462,13 +462,16 @@
   function requestAttributeLabel(type) { return ({ ordinary: "Обычная", emergency: "Аварийная · без ущерба", emergencyDamage: "Аварийная · с ущербом", paid: "Платная" })[type] || "Обычная"; }
   function isEmergency(card) { return card.type === "emergency" || card.type === "emergencyDamage"; }
   function requestMoneyCost(card) {
-    const materialCost = requestMaterialPurchaseCost(card);
+    return requestContractorWorkCost(card) + requestMaterialPurchaseCost(card);
+  }
+  function requestContractorWorkCost(card) {
     const specialist = Object.values(ROLES).find(role => role.category === card.category);
-    return (specialist?.salary || ROLES.handyman.salary) + materialCost + CONFIG.economy.contractorMarkup;
+    return (specialist?.salary || ROLES.handyman.salary) + CONFIG.economy.contractorMarkup;
   }
   function requestMaterialUnits(card) { return card.type === "paid" ? 0 : Math.min(MAX_REQUEST_MATERIAL_UNITS, Math.max(0, Math.floor(Number.isFinite(card.materialCost) ? card.materialCost : 0))); }
   function materialUnitCost(discounted = false) { const base = Math.max(0.01, Number(CONFIG.economy.materialCostPerUnit) || 1); return discounted ? Math.max(0.01, base * (1 - Math.min(100, employeeBonusCount("engineer", "discountProblemMaterials") * CONFIG.rules.engineerMaterialDiscountPercent) / 100)) : base; }
   function materialShortage(units) { return Math.max(0, units - state.materialStock); }
+  function canCoverRequiredCost(cost) { return cost <= 0 || state.capital >= cost; }
   function requestMaterialPurchaseCost(card) { return materialShortage(requestMaterialUnits(card)) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier; }
   function consumeMaterials(units) { const used = Math.min(state.materialStock, Math.max(0, units)); state.materialStock = Math.max(0, state.materialStock - used); return used; }
   function requestIsOverdue(card) { return state.turn - (card.receivedTurn ?? state.turn) >= 4 * state.seasonDuration; }
@@ -488,11 +491,46 @@
   function hasEmployeeBonus(role, bonus) { return employeeBonusCount(role, bonus) > 0; }
   function maintenanceDiscountPercent() { return Math.min(100, employeeBonusCount("accountant", "discountMaintenance") * CONFIG.rules.accountantMaintenanceDiscountPercent); }
   function effectiveBaseMaintenanceTotal() { const gross = managedHomes().reduce((sum, home) => sum + (Number.isFinite(home.baseMaintenance) ? home.baseMaintenance : state.baseMaintenance), 0); return gross * (1 - maintenanceDiscountPercent() / 100); }
+  function applyAnnualMaintenanceGrowth() {
+    const changes = managedHomes().map(home => {
+      const previous = Number.isFinite(home.baseMaintenance) ? home.baseMaintenance : CONFIG.economy.baseMaintenancePerHouse;
+      const growthPercent = Math.floor(Math.random() * 10) + 1;
+      const updated = Math.round(previous * (1 + growthPercent / 100) * 100) / 100;
+      setHomeField(home, "baseMaintenance", updated);
+      return { name: home.name, address: home.address, previous, growthPercent, updated };
+    });
+    if (changes.length) addLogSequence(changes.map(change => `Естественный рост БО дома «${change.name}» (${change.address}): ${money(change.previous)} → ${money(change.updated)} ₽ за ход (+${change.growthPercent}%).`));
+    return changes;
+  }
   function managedHomes() {
     const primary = { name: state.houseName, managedSinceYear: state.managedSinceYear, address: state.houseAddress, area: state.primaryArea || state.area, age: state.houseAge, baseMaintenance: state.baseMaintenance, primary: true, tariffPerSquareMeter: state.tariffPerSquareMeter, tariffOssResolvedYear: state.tariffOssResolvedYear, debtRecoverable: state.primaryDebtRecoverable || 0, debtIrrecoverable: state.primaryDebtIrrecoverable || 0, collectionStats: state.primaryCollectionStats || { billed: 0, collected: 0, periods: 0 }, lastCollectionRate: state.primaryLastCollectionRate, repairWarranties: state.houseRepairWarranties || {}, warrantyUntilTurn: state.houseWarrantyUntilTurn };
     return (state.houseRemoved ? [] : [primary]).concat(state.additionalHomes || []);
   }
+  function availableRealEstateHomes() {
+    const ownedNames = new Set(managedHomes().map(home => home.name));
+    return (state.houseDeck || []).filter(house => !ownedNames.has(house.name));
+  }
+  function addHomeToPortfolio(home) {
+    if (managedHomes().length) {
+      state.additionalHomes.push(home);
+    } else {
+      state.houseName = home.name; state.managedSinceYear = home.managedSinceYear || state.year; state.houseAddress = home.address;
+      state.primaryArea = home.area; state.houseAge = Number(home.age) || 0; state.baseMaintenance = home.baseMaintenance;
+      state.tariffPerSquareMeter = home.tariffPerSquareMeter; state.tariffOssResolvedYear = home.tariffOssResolvedYear ?? null;
+      state.primaryDebtRecoverable = home.debtRecoverable || 0; state.primaryDebtIrrecoverable = home.debtIrrecoverable || 0;
+      state.primaryCollectionStats = home.collectionStats || { billed: 0, collected: 0, periods: 0 }; state.primaryLastCollectionRate = home.lastCollectionRate ?? null;
+      state.houseRepairWarranties = home.repairWarranties || {}; state.houseWarrantyUntilTurn = home.warrantyUntilTurn ?? null;
+      state.houseUnsafeSinceTurn = home.unsafeSinceTurn ?? null; state.houseUnsafeSinceYear = home.unsafeSinceYear ?? null; state.houseUnsafeReasons = home.unsafeReasons || [];
+      state.houseUnsafeCategory = null; state.houseRemoved = false;
+    }
+    refreshPortfolioTotals();
+  }
   function managedHomeByName(name) { return managedHomes().find(home => home.name === name) || null; }
+  function averageManagedTariff() {
+    const homes = managedHomes();
+    const area = homes.reduce((sum, home) => sum + home.area, 0);
+    return area > 0 ? homes.reduce((sum, home) => sum + home.area * currentTariff(home), 0) / area : 0;
+  }
   function setHomeField(home, field, value) {
     if (!home) return;
     if (home.primary) {
@@ -521,7 +559,13 @@
   function hasEngineer() { return activeEmployees().some(employee => employee.role === "engineer"); }
   function pendingHireHasHR() { return state.pendingHireIds.some(id => state.market.some(candidate => candidate.id === id && candidate.role === "hr")); }
   function activeLawyers() { return activeEmployees().filter(employee => employee.role === "lawyer"); }
-  function lawyersDone() { const lawyers = activeLawyers(); return !lawyers.length || lawyers.every(employee => state.lawyerActionsUsed.includes(employee.id)); }
+  function lawyerHasAvailableTask(lawyer) {
+    if (state.houseDebtRecoverable > 0) return true;
+    if (state.penalties.some(penalty => !penalty.paid && !penalty.writtenOff && !penalty.lawyerCleared && !(penalty.contestedBy || []).length)) return true;
+    if (state.compensations.some(claim => !claim.paid && !claim.writtenOff && claim.amount > 0 && claim.status === "court" && claim.courtStage === "trial" && (!(claim.contestedBy || []).length || claim.lastDelayTurn !== state.turn))) return true;
+    return state.legalCases.some(caseFile => caseFile.status === "trial" && (caseFile.lastWinAttemptTurn !== state.turn || caseFile.lastDelayTurn !== state.turn));
+  }
+  function lawyersDone() { const lawyers = activeLawyers(); return !lawyers.length || lawyers.every(employee => state.lawyerActionsUsed.includes(employee.id) || !lawyerHasAvailableTask(employee)); }
   function markLawyerDone(employeeId) { if (!state.lawyerActionsUsed.includes(employeeId)) state.lawyerActionsUsed.push(employeeId); state.lawyerActionTaken = lawyersDone(); }
   const MOOD_ORDER = ["veryDissatisfied", "dissatisfied", "normal", "satisfied"];
   const MOOD_LABELS = { veryDissatisfied: "Очень недоволен", dissatisfied: "Недоволен", normal: "Норм", satisfied: "Доволен" };
@@ -546,8 +590,10 @@
     const employee = state.employees.find(item => item.id === employeeId && item.pendingDeparture?.reason === "outsideOffer" && item.pendingDeparture.needsResponse);
     if (!employee) return;
     if (keep) {
+      if (employee.retentionRaiseYear === state.year) { showToast(`${employee.name} уже получил встречное повышение зарплаты в этом году.`); return; }
       const increase = CONFIG.rules.employeeRetentionSalaryIncreasePercent ?? 20;
       employee.salary *= 1 + increase / 100;
+      employee.retentionRaiseYear = state.year;
       employee.pendingDeparture = null;
       addLog(`Сотрудник ${employee.name} согласился остаться после повышения зарплаты на ${increase}%; новая ставка ${money(employee.salary)} ₽ за ход.`);
       showToast(`${employee.name} остаётся в компании с повышением зарплаты.`);
@@ -607,9 +653,9 @@
     let periodLabel;
     if (financialPeriodSelection === "all") {
       financials = history.reduce((total, record) => {
-        ["collection", "paidIncome", "upkeep", "salaries", "fines", "compensation", "problemRepairs"].forEach(key => { total[key] += numeric(record, key); });
+        ["collection", "paidIncome", "upkeep", "salaries", "fines", "compensation", "problemRepairs", "contractors", "materials"].forEach(key => { total[key] += numeric(record, key); });
         return total;
-      }, { collection: 0, paidIncome: 0, upkeep: 0, salaries: 0, fines: 0, compensation: 0, problemRepairs: 0 });
+      }, { collection: 0, paidIncome: 0, upkeep: 0, salaries: 0, fines: 0, compensation: 0, problemRepairs: 0, contractors: 0, materials: 0 });
       periodLabel = "Все завершённые периоды";
     } else if (financialPeriodSelection === "latest") {
       financials = history.length ? latestRecord : state.lastSeasonFinancials;
@@ -621,9 +667,13 @@
       periodLabel = periodLabelFor(record, selectedIndex);
     }
     const totalIncome = numeric(financials, "collection") + numeric(financials, "paidIncome");
-    const totalExpenses = ["upkeep", "salaries", "fines", "compensation", "problemRepairs"].reduce((sum, key) => sum + numeric(financials, key), 0);
+    const totalExpenses = ["upkeep", "salaries", "fines", "compensation", "problemRepairs", "contractors", "materials"].reduce((sum, key) => sum + numeric(financials, key), 0);
     const net = totalIncome - totalExpenses;
     const max = Math.max(totalIncome, totalExpenses, 1);
+    const tariffHistory = history.filter(record => Number.isFinite(record.averageTariff) && record.averageTariff > 0);
+    const averageTariff = financialPeriodSelection === "all"
+      ? tariffHistory.length ? tariffHistory.reduce((sum, record) => sum + record.averageTariff, 0) / tariffHistory.length : averageManagedTariff()
+      : Number.isFinite(financials.averageTariff) && financials.averageTariff > 0 ? financials.averageTariff : averageManagedTariff();
     const rows = [
       { label: "Содержание", value: numeric(financials, "collection"), type: "income" },
       { label: "Платные заявки", value: numeric(financials, "paidIncome"), type: "income" },
@@ -631,10 +681,12 @@
       { label: "Зарплаты", value: numeric(financials, "salaries"), type: "expense" },
       { label: "Штрафы", value: numeric(financials, "fines"), type: "expense" },
       { label: "Возмещение ущерба", value: numeric(financials, "compensation"), type: "expense" },
-      { label: "Решение проблем", value: numeric(financials, "problemRepairs"), type: "expense" }
+      { label: "Расходы на подрядчиков", value: numeric(financials, "contractors"), type: "expense" },
+      { label: "Расходы на материалы", value: numeric(financials, "materials"), type: "expense" },
+      { label: "Прочие расходы", value: numeric(financials, "problemRepairs"), type: "expense" }
     ];
     const options = `<option value="all">Все завершённые периоды</option><option value="latest">Последний сезон</option>${history.map((record, index) => `<option value="${periodKey(record, index)}">${periodLabelFor(record, index)}</option>`).join("")}`;
-    const graphMetrics = { capital: { label: "Бюджет", key: "capital", format: value => `${money(value)} ₽` }, collection: { label: "Собираемость", key: "collectionRate", format: value => `${Math.round(value)}%` }, reputation: { label: "Репутация", key: "reputation", format: value => `${value > 0 ? "+" : ""}${value}` } };
+    const graphMetrics = { capital: { label: "Бюджет", key: "capital", format: value => `${money(value)} ₽` }, collection: { label: "Собираемость", key: "collectionRate", format: value => `${Math.round(value)}%` }, reputation: { label: "Репутация", key: "reputation", format: value => `${value > 0 ? "+" : ""}${value}` }, upkeep: { label: "Расходы на БО", key: "upkeep", format: value => `${money(value)} ₽` }, salaries: { label: "Расходы на зарплаты", key: "salaries", format: value => `${money(value)} ₽` }, compensation: { label: "Возмещение ущерба", key: "compensation", format: value => `${money(value)} ₽` }, averageTariff: { label: "Средний тариф содержания УО", key: "averageTariff", format: value => `${money(value)} ₽/м²` }, contractors: { label: "Расходы на подрядчиков", key: "contractors", format: value => `${money(value)} ₽` }, materials: { label: "Расходы на материалы", key: "materials", format: value => `${money(value)} ₽` } };
     const graphMetric = graphMetrics[graphMetricSelection] || graphMetrics.capital;
     const graphData = history.map((record, index) => ({ label: `${SEASONS[record.seasonIndex]} · ${record.year}${periodPart(record, index)}`, value: numeric(record, graphMetric.key) }));
     let graphMarkup = '<div class="history-graph-empty">График появится после завершения первого сезона.</div>';
@@ -651,7 +703,7 @@
       const xLabels = graphData.map((point, index) => index % labelStep === 0 || index === graphData.length - 1 ? `<text x="${xAt(index).toFixed(1)}" y="211" text-anchor="middle">${escapeHtml(point.label)}</text>` : "").join("");
       graphMarkup = `<svg class="history-graph-svg" viewBox="0 0 ${width} 225" role="img" aria-label="${graphMetric.label} по сезонам"><line x1="${plotLeft}" y1="${plotTop}" x2="${plotRight}" y2="${plotTop}" class="graph-gridline"/><line x1="${plotLeft}" y1="${plotBottom}" x2="${plotRight}" y2="${plotBottom}" class="graph-gridline"/><text x="4" y="${plotTop + 4}">${escapeHtml(graphMetric.format(maxValue))}</text><text x="4" y="${plotBottom + 4}">${escapeHtml(graphMetric.format(min))}</text><path d="${linePath}" class="history-graph-line"/>${markers}${xLabels}</svg>`;
     }
-    elements.financialInfographic.innerHTML = `<div class="financial-chart-heading"><div><p class="section-label">ФИНАНСОВЫЕ ИТОГИ</p><h2>Движение денег за выбранный период</h2></div><div class="financial-period-controls"><label for="financial-period-select">Период</label><select id="financial-period-select">${options}</select><span class="financial-season-badge">${periodLabel}</span></div></div><div class="financial-summary"><article><span>Приходы</span><b class="financial-positive">+${money(totalIncome)} ₽</b></article><article><span>Расходы</span><b class="financial-negative">−${money(totalExpenses)} ₽</b></article><article><span>Разница</span><b class="${net >= 0 ? "financial-positive" : "financial-negative"}">${net >= 0 ? "+" : "−"}${money(Math.abs(net))} ₽</b></article></div><div class="financial-bars">${rows.map(row => `<div class="financial-bar-row"><span>${row.label}</span><div class="financial-bar-track"><i class="financial-bar-fill ${row.type}" style="width:${Math.max(row.value > 0 ? 2 : 0, row.value / max * 100)}%"></i></div><b>${row.type === "income" ? "+" : "−"}${money(row.value)} ₽</b></div>`).join("")}</div><section class="history-graph-panel"><div class="history-graph-heading"><div><p class="section-label">ГРАФИКИ</p><h3>${graphMetric.label} по сезонам и годам</h3></div><label for="graph-metric-select">Показатель<select id="graph-metric-select"><option value="capital">Бюджет</option><option value="collection">Собираемость</option><option value="reputation">Репутация</option></select></label></div>${graphMarkup}</section>`;
+    elements.financialInfographic.innerHTML = `<div class="financial-chart-heading"><div><p class="section-label">ФИНАНСОВЫЕ ИТОГИ</p><h2>Движение денег за выбранный период</h2></div><div class="financial-period-controls"><label for="financial-period-select">Период</label><select id="financial-period-select">${options}</select><span class="financial-season-badge">${periodLabel}</span></div></div><div class="financial-summary"><article><span>Приходы</span><b class="financial-positive">+${money(totalIncome)} ₽</b></article><article><span>Расходы</span><b class="financial-negative">−${money(totalExpenses)} ₽</b></article><article><span>Разница</span><b class="${net >= 0 ? "financial-positive" : "financial-negative"}">${net >= 0 ? "+" : "−"}${money(Math.abs(net))} ₽</b></article><article><span>Средний тариф содержания УО</span><b>${money(averageTariff)} ₽/м²</b></article></div><div class="financial-bars">${rows.map(row => `<div class="financial-bar-row"><span>${row.label}</span><div class="financial-bar-track"><i class="financial-bar-fill ${row.type}" style="width:${Math.max(row.value > 0 ? 2 : 0, row.value / max * 100)}%"></i></div><b>${row.type === "income" ? "+" : "−"}${money(row.value)} ₽</b></div>`).join("")}</div><section class="history-graph-panel"><div class="history-graph-heading"><div><p class="section-label">ГРАФИКИ</p><h3>${graphMetric.label} по сезонам и годам</h3></div><label for="graph-metric-select">Показатель<select id="graph-metric-select">${Object.entries(graphMetrics).map(([key, metric]) => `<option value="${key}">${metric.label}</option>`).join("")}</select></label></div>${graphMarkup}</section>`;
     const select = elements.financialInfographic.querySelector("#financial-period-select");
     select.value = financialPeriodSelection;
     select.addEventListener("change", () => { financialPeriodSelection = select.value; renderFinancialInfographic(); });
@@ -901,7 +953,7 @@
         const remainingMaterialUnits = state.houseProblems.reduce((sum, problem) => problem.materialPurchased || Number.isFinite(problem.materialCostPaid) ? sum : sum + problemRequirements(problem).materials, 0);
         const materialTotal = materialShortage(remainingMaterialUnits) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
         const contractorTotal = state.houseProblems.reduce((sum, problem) => sum + remainingProblemContractorWork(problem), 0);
-        requiredExpenses.innerHTML = `<div><span>Требуемые расходы на материалы</span><b>${money(materialTotal)} ₽</b></div><div><span>Требуемые расходы на подрядчика</span><b>${money(contractorTotal)} ₽</b></div>`;
+        requiredExpenses.innerHTML = `<div><span>Требуется материалов</span><b>${quantity(remainingMaterialUnits)} шт.</b></div><div><span>Расходы на материалы</span><b>${money(materialTotal)} ₽</b></div><div><span>Расходы на подрядчика</span><b>${money(contractorTotal)} ₽</b></div>`;
       } else if (showRequiredExpenses) {
         const pendingRequests = unresolved;
         const materialUnits = pendingRequests.reduce((sum, card) => sum + requestMaterialUnits(card), 0);
@@ -910,7 +962,7 @@
           const specialist = Object.values(ROLES).find(role => role.category === card.category);
           return sum + (specialist?.salary || ROLES.handyman.salary) + CONFIG.economy.contractorMarkup;
         }, 0);
-        requiredExpenses.innerHTML = `<div><span>Требуемые расходы на материалы</span><b>${money(materialTotal)} ₽</b></div><div><span>Требуемые расходы на подрядчика</span><b>${money(contractorTotal)} ₽</b></div>`;
+        requiredExpenses.innerHTML = `<div><span>Требуется материалов</span><b>${quantity(materialUnits)} шт.</b></div><div><span>Расходы на материалы</span><b>${money(materialTotal)} ₽</b></div><div><span>Расходы на подрядчика</span><b>${money(contractorTotal)} ₽</b></div>`;
       }
     }
     elements.hint.textContent = state.phase === "staffing" ? "Сначала найми или уволь сотрудников" : state.phase === "inspection" ? "Проведи сезонный осмотр дома" : state.phase === "problems" ? "При желании вызови подрядчика для ремонта проблем" : state.phase === "drawing" ? "Прими новые заявки, чтобы продолжить ход" : state.phase === "legal" ? "Юристы выбирают поручения, инженеры могут купить материалы" : state.phase === "payroll" ? "Выплати зарплаты перед сбором содержания" : state.phase === "collection" ? "Собери содержание и заверши сезон" : unresolved.length ? "Решай заявки специалистами или деньгами" : "Все заявки этого хода решены";
@@ -921,7 +973,7 @@
       gameOverActionMessage.hidden = state.phase !== "gameOver";
       gameOverActionMessage.textContent = state.badGameResult || "Игра окончена";
     }
-    elements.end.disabled = state.phase === "legal" ? (hasLawyer() && !lawyersDone()) : !["staffing", "inspection", "problems", "drawing", "resolving", "payroll", "collection"].includes(state.phase);
+    elements.end.disabled = !["staffing", "inspection", "problems", "drawing", "resolving", "legal", "payroll", "collection"].includes(state.phase);
     elements.end.querySelector("span:first-child").textContent = phaseActionLabel();
     elements.title.textContent = state.phase === "gameOver" ? "Игра окончена" : state.phase === "preparation" ? "Создай свою управляющую компанию" : state.phase === "bankruptcy" ? "Нужна новая управляющая компания" : state.phase === "annualReport" ? "Год завершён" : state.phase === "legal" ? "Реши, что делают специалисты" : state.phase === "staffing" ? "Собери команду" : state.phase === "inspection" ? "Проведи сезонный осмотр" : state.phase === "problems" ? "Реши, что делать с проблемами дома" : state.phase === "drawing" ? "Прими заявки" : state.phase === "payroll" ? "Выплати зарплаты" : state.phase === "collection" ? "Собери содержание" : unresolved.length ? "Разбираем заявки" : "Заявки решены";
     elements.copy.textContent = state.phase === "gameOver" ? state.badGameResult || "Игра окончена" : state.phase === "bankruptcy" ? `Баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Текущая компания не может продолжать работу.` : state.phase === "annualReport" ? "Просмотри результаты года. Перед отчётом все невыполненные заявки, включая аварийные, автоматически отменяются; каждые 5 штрафных единиц отмен снижают репутацию на 1." : state.phase === "legal" ? "Юристы выполняют поручения, инженеры могут закупить материалы по себестоимости." : state.phase === "staffing" ? "Добавляй сотрудников в кадровый пул или отмечай увольнение. Изменения применятся при переходе дальше; до этого их можно отменить." : state.phase === "inspection" ? "Осмотр проводится осенью и весной; инженер уменьшает число выявленных проблем на одну." : state.phase === "problems" ? "Подрядчик может устранить проблему целиком. Если оставить её, она создаст сезонные заявки." : state.phase === "drawing" ? "Кадровые изменения применены. Теперь открой заявки жильцов." : state.phase === "payroll" ? "Зарплаты рассчитаны по составу команды и испытательным срокам." : state.phase === "collection" ? "Оплатится базовое обслуживание и случайно определится собираемость." : unresolved.length ? "Распределяй заявки в пределах продуктивности или назначай переработку за премию. Любую заявку можно оплатить." : "Переходи к выплате зарплат.";
@@ -945,8 +997,8 @@
     const list = document.getElementById("real-estate-list");
     const market = document.getElementById("real-estate-market");
     if (!list || !market) return;
-    market.hidden = state.phase === "preparation" || state.phase === "bankruptcy" || state.houseRemoved || !state.houseDeck.length;
-    const properties = state.houseDeck.filter(house => !managedHomes().some(owned => owned.name === house.name));
+    market.hidden = state.phase === "preparation" || state.phase === "bankruptcy" || state.phase === "gameOver";
+    const properties = availableRealEstateHomes();
     const usedThisTurn = state.newHouseOssUsedTurn === state.turn;
     if (usedThisTurn) {
       list.innerHTML = properties.length ? `<p class="real-estate-note">В этом ходу ОСС «Новый дом» уже проводилось. Новая попытка будет доступна в следующем ходу.</p>${properties.map(house => realEstateCard(house, true)).join("")}` : '<p class="real-estate-note">В колоде недвижимости не осталось доступных объектов.</p>';
@@ -971,9 +1023,7 @@
     const cancelledAllTime = state.cancelledRequests.length;
     const vote = ossVote(`Новый дом: ${house.name}`, 0, { includeReputation: true, area: house.area, cancelledCountOverride: cancelledAllTime, cancelledMultiplier: 1, logHouseAddress: house.address });
     if (vote.success) {
-      state.additionalHomes.push({ ...house, baseMaintenance: Number.isFinite(house.baseMaintenance) ? house.baseMaintenance : CONFIG.economy.baseMaintenancePerHouse, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, tariffOssResolvedYear: null, managedSinceYear: state.year, debtRecoverable: 0, debtIrrecoverable: 0, collectionStats: { billed: 0, collected: 0, periods: 0 }, lastCollectionRate: null, repairWarranties: {}, warrantyUntilTurn: null, unsafeSinceTurn: null, unsafeSinceYear: null, unsafeReasons: [], removed: false });
-      state.houses += 1;
-      state.area += house.area;
+      addHomeToPortfolio({ ...house, baseMaintenance: Number.isFinite(house.baseMaintenance) ? house.baseMaintenance : CONFIG.economy.baseMaintenancePerHouse, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, tariffOssResolvedYear: null, managedSinceYear: state.year, debtRecoverable: 0, debtIrrecoverable: 0, collectionStats: { billed: 0, collected: 0, periods: 0 }, lastCollectionRate: null, repairWarranties: {}, warrantyUntilTurn: null, unsafeSinceTurn: null, unsafeSinceYear: null, unsafeReasons: [], removed: false });
       state.houseDeck = state.houseDeck.filter(item => item.name !== house.name);
       addLog(`По ОСС «Новый дом» в управление принят дом «${house.name}», ${house.address}, площадь ${house.area} м². Портфель: ${state.houses} домов, ${state.area} м².`);
       showToast(`ОСС принято: дом «${house.name}» добавлен в управление.`);
@@ -988,15 +1038,16 @@
     if (!state.badGameMode || ["preparation", "bankruptcy", "gameOver"].includes(state.phase)) return;
     const house = state.houseDeck.find(item => item.name === houseName);
     if (!house) return;
-    state.additionalHomes.push({ ...house, managedSinceYear: state.year, baseMaintenance: Number.isFinite(house.baseMaintenance) ? house.baseMaintenance : CONFIG.economy.baseMaintenancePerHouse, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, tariffOssResolvedYear: null, debtRecoverable: 0, debtIrrecoverable: 0, collectionStats: { billed: 0, collected: 0, periods: 0 }, lastCollectionRate: null, repairWarranties: {}, warrantyUntilTurn: null, unsafeSinceTurn: null, unsafeSinceYear: null, unsafeReasons: [], removed: false });
+    addHomeToPortfolio({ ...house, managedSinceYear: state.year, baseMaintenance: Number.isFinite(house.baseMaintenance) ? house.baseMaintenance : CONFIG.economy.baseMaintenancePerHouse, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, tariffOssResolvedYear: null, debtRecoverable: 0, debtIrrecoverable: 0, collectionStats: { billed: 0, collected: 0, periods: 0 }, lastCollectionRate: null, repairWarranties: {}, warrantyUntilTurn: null, unsafeSinceTurn: null, unsafeSinceYear: null, unsafeReasons: [], removed: false });
     state.houseDeck = state.houseDeck.filter(item => item.name !== house.name);
-    refreshPortfolioTotals();
     addLog(`Подделаны подписи собственников дома «${house.name}» (${house.address}); дом добавлен в управление.`);
     const lawsuitChance = complaintProbability(CONFIG.rules.badGameForgeryLawsuitChance ?? 0.2);
     if (Math.random() < lawsuitChance) {
       const caseId = `fraud-${state.turn}-${Date.now()}`;
       state.legalCases.push({ id: caseId, caseType: "forgedHouse", houseName: house.name, houseAddress: house.address, status: "trial", filedTurn: state.turn, filedYear: state.year, filedSeasonIndex: state.seasonIndex, filedSeasonTurnIndex: state.seasonTurnIndex, deadlineTurn: state.turn + SEASONS.length, delayCount: 0, lastDelayTurn: null, lastWinAttemptTurn: null });
-      addLog(`Собственники дома «${house.name}» (${house.address}) подали в суд (шанс ${Math.round(lawsuitChance * 100)}%). Дело добавлено в «Суды и обязательства».`);
+      const filingReputationPenalty = CONFIG.rules.badGameForgeryFilingReputationPenalty ?? 2;
+      state.reputation -= filingReputationPenalty;
+      addLog(`Собственники дома «${house.name}» (${house.address}) подали в суд (шанс ${Math.round(lawsuitChance * 100)}%). Дело добавлено в «Суды и обязательства». Репутация −${filingReputationPenalty}.`);
       showToast(`Дом получен, но собственники подали в суд.`);
     } else showToast(`Дом «${house.name}» получен в управление.`);
     saveState(); render();
@@ -1018,7 +1069,7 @@
     state.houseProblems = state.houseProblems.filter(problem => problem.houseName !== houseName);
     state.requests = state.requests.filter(card => card.houseName !== houseName);
     refreshPortfolioTotals();
-    if (state.houses === 0) { state.phase = "gameOver"; state.badGameResult = "Вы потеряли все дома в управлении"; }
+    if (state.houses === 0 && availableRealEstateHomes().length === 0) { state.phase = "gameOver"; state.badGameResult = "Вы потеряли все дома в управлении и на рынке нет доступных домов"; }
     return true;
   }
 
@@ -1052,7 +1103,7 @@
       const homeProblems = state.houseProblems.filter(problem => (problem.houseName || state.houseName) === home.name);
       const wearByCategory = Object.fromEntries(HOUSE_PROBLEMS.map(item => [item.category, homeProblems.filter(problem => problem.category === item.category).reduce((sum, problem) => sum + problem.wear, 0)]));
       const overallWear = Math.round(Object.values(wearByCategory).reduce((sum, wear) => sum + wear, 0) / HOUSE_PROBLEMS.length);
-      const problems = HOUSE_PROBLEMS.filter(definition => wearByCategory[definition.category] > 0).map(definition => {
+      const problems = HOUSE_PROBLEMS.filter(definition => wearByCategory[definition.category] > 0).sort((a, b) => wearByCategory[b.category] - wearByCategory[a.category]).map(definition => {
         const categoryProblems = homeProblems.filter(problem => problem.category === definition.category);
         const cost = categoryProblems.reduce((sum, problem) => sum + problemRepairCost(problem), 0);
         const severity = Math.max(0, Math.min(100, wearByCategory[definition.category]));
@@ -1177,33 +1228,42 @@
         const done = Math.min(required, progress[category] || 0);
         const remaining = required - done;
         const workers = activeEmployees().filter(employee => ROLES[employee.role]?.category === category);
-        const workerButtons = workers.map(employee => {
+        const regularButtons = [];
+        const paidOvertimeButtons = [];
+        const unpaidOvertimeButtons = [];
+        workers.forEach(employee => {
           const name = escapeHtml(employee.name || roleName(employee.role));
+          const workerLabel = `${roleName(employee.role)}: ${name}`;
           const available = Math.max(0, effectiveProductivity(employee) - employee.assignedLabor);
           const regularWork = Math.min(remaining, available);
-          const regularButton = regularWork ? `<button class="problem-work-button" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="none" ${!materialPurchased ? "disabled" : ""}>${name} · ${regularWork} трудозатрат · без премии</button>` : "";
-          if (remaining <= regularWork) return regularButton;
+          const productivityLabel = `<span class="worker-productivity-count">(${quantity(available)}/${quantity(effectiveProductivity(employee))})</span>`;
+          if (regularWork) regularButtons.push(`<button class="problem-work-button" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="none" ${!materialPurchased ? "disabled" : ""}>${workerLabel} · ${productivityLabel} · без премии</button>`);
+          if (remaining <= regularWork) return;
           const overtimePlan = overtimeFor(employee, remaining);
-          const paidButton = `<button class="problem-work-button problem-overtime-paid" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="paid" ${!materialPurchased || state.capital < overtimePlan.premium ? "disabled" : ""}>${name} · ещё ${remaining} трудозатрат · премия ${money(overtimePlan.premium)} ₽</button>`;
-          const unpaidButton = `<button class="problem-work-button problem-overtime-unpaid" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="unpaid" ${!materialPurchased ? "disabled" : ""}>${name} · ещё ${remaining} трудозатрат · без премии, недовольство</button>`;
-          return `${regularButton}${paidButton}${unpaidButton}`;
-        }).join("");
+          paidOvertimeButtons.push(`<button class="problem-work-button problem-overtime-paid" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="paid" ${!materialPurchased || !canCoverRequiredCost(overtimePlan.premium) ? "disabled" : ""}>${workerLabel} · ${productivityLabel} · премия ${money(overtimePlan.premium)} ₽</button>`);
+          unpaidOvertimeButtons.push(`<button class="problem-work-button problem-overtime-unpaid" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="unpaid" ${!materialPurchased ? "disabled" : ""}>${workerLabel} · ${productivityLabel} · без премии, недовольство</button>`);
+        });
+        const workerButtons = [...regularButtons, ...paidOvertimeButtons, ...unpaidOvertimeButtons].join("");
         return `<div class="problem-work-row"><div><strong>${escapeHtml(category)}</strong><span>Выполнено ${done} / ${required} · осталось ${remaining}</span></div><div class="problem-work-actions">${workerButtons || `<span class="problem-work-empty">${remaining ? "Нет доступного исполнителя этой категории" : "Категория завершена"}</span>`}</div></div>`;
       }).join("");
       const materialNeed = problem.materialUnits || requirements.materials;
       const materialShortageUnits = materialPurchased ? 0 : materialShortage(materialNeed);
       const materialPurchaseCost = materialPurchased ? (problem.materialCostPaid || 0) : materialShortageUnits * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-      const materialButton = !materialPurchased ? `<button class="problem-material-button" type="button" data-problem-material="${escapeHtml(problem.id)}" ${state.capital < materialPurchaseCost ? "disabled" : ""}>Материалы ${materialNeed} ед. · докупить ${materialShortageUnits} ед. за ${money(materialPurchaseCost)} ₽</button><span class="problem-material-paid">На складе: ${quantity(state.materialStock)} ед.</span>` : `<span class="problem-material-paid">Материалы закуплены · ${materialNeed} ед.</span>`;
+      const materialButton = !materialPurchased ? `<button class="problem-material-button" type="button" data-problem-material="${escapeHtml(problem.id)}" ${!canCoverRequiredCost(materialPurchaseCost) ? "disabled" : ""}>${materialShortageUnits === 0 ? `Списать со склада · ${materialNeed} ед.` : `Материалы ${materialNeed} ед. · докупить ${materialShortageUnits} ед. за ${money(materialPurchaseCost)} ₽`}</button><span class="problem-material-paid">На складе: ${quantity(state.materialStock)} ед.</span>` : `<span class="problem-material-paid">Материалы закуплены · ${materialNeed} ед.</span>`;
       const contractorCost = remainingProblemContractorWork(problem);
       const contractorButton = `<button class="problem-contract-button" type="button" data-problem-contract="${escapeHtml(problem.id)}" ${!materialPurchased || state.capital < contractorCost ? "disabled" : ""}>Подрядчик · работы ${money(contractorCost)} ₽</button>`;
+      const combinedMaterialCost = materialPurchased ? 0 : materialNeed * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
+      const combinedContractorCost = contractorCost + combinedMaterialCost;
+      const combinedContractorButton = !materialPurchased && materialNeed > 0 ? `<button class="problem-contract-button" type="button" data-problem-contract-combined="${escapeHtml(problem.id)}" ${state.capital < combinedContractorCost ? "disabled" : ""}>Подрядчик + Материал: ${money(combinedContractorCost)} ₽</button>` : "";
       const problemHome = managedHomeByName(problem.houseName || state.houseName);
       const unsafeSince = problemHome?.primary ? state.houseUnsafeSinceTurn : problemHome?.unsafeSinceTurn;
       const status = unsafeSince != null ? `<span class="unsafe-countdown">До автоматического признания дома аварийным: ${unsafeHouseSeasonsRemaining(problemHome.name)} полных сезонов</span>` : "";
-      return `<article class="problem-repair-card"><div class="problem-repair-main"><strong>${escapeHtml(problem.houseAddress || managedHomeByName(problem.houseName)?.address || state.houseAddress)} · ${escapeHtml(problem.category)} · износ ${problem.wear}%</strong><span>Сначала приобрети материалы. Затем полностью устрани работы подрядчиком или штатными сотрудниками. Трудозатраты можно накапливать между ходами. Общая оценка: ${money(problemRepairCost(problem))} ₽</span></div>${status}<div class="problem-material-actions">${materialButton}</div><div class="problem-work-list">${workRows || `<div class="problem-work-row"><div><strong>Работы без затрат продуктивности</strong><span>Для завершения ремонта всё равно нужна покупка материалов и подтверждение способа выполнения.</span></div></div>`}</div><div class="problem-repair-actions">${contractorButton}</div></article>`;
+      return `<article class="problem-repair-card"><div class="problem-repair-main"><strong>${escapeHtml(problem.houseAddress || managedHomeByName(problem.houseName)?.address || state.houseAddress)} · ${escapeHtml(problem.category)} · износ ${problem.wear}%</strong><span>Сначала приобрети материалы. Затем полностью устрани работы подрядчиком или штатными сотрудниками. Трудозатраты можно накапливать между ходами. Общая оценка: ${money(problemRepairCost(problem))} ₽</span></div>${status}<div class="problem-material-actions">${materialButton}</div><div class="problem-work-list">${workRows || `<div class="problem-work-row"><div><strong>Работы без затрат продуктивности</strong><span>Для завершения ремонта всё равно нужна покупка материалов и подтверждение способа выполнения.</span></div></div>`}</div><div class="problem-repair-actions">${contractorButton}${combinedContractorButton}</div></article>`;
     }).join("");
     elements.problemPanel.innerHTML = `<div class="problem-panel-heading"><div><p class="section-label">ЭТАП · РЕШЕНИЕ ПРОБЛЕМ</p><h2>Материалы и ремонт дома</h2></div><span class="inspection-icon">⚒</span></div><p>Сначала приобрети материалы. Затем оплати подрядчику только работы или распределяй трудозатраты между штатными исполнителями. Работы можно завершать поэтапно в разные сезоны.</p><div class="problem-repair-list">${rows || '<div class="problem-none">На доме нет известных проблем. Переходи к приёму заявок.</div>'}</div>`;
     elements.problemPanel.querySelectorAll("[data-problem-material]").forEach(button => button.addEventListener("click", () => purchaseProblemMaterials(button.dataset.problemMaterial)));
     elements.problemPanel.querySelectorAll("[data-problem-contract]").forEach(button => button.addEventListener("click", () => hireProblemContractor(button.dataset.problemContract)));
+    elements.problemPanel.querySelectorAll("[data-problem-contract-combined]").forEach(button => button.addEventListener("click", () => hireProblemContractor(button.dataset.problemContractCombined, true)));
     elements.problemPanel.querySelectorAll("[data-problem-work]").forEach(button => button.addEventListener("click", () => assignProblemWork(button.dataset.problemWork, button.dataset.problemWorker, button.dataset.problemCategory, button.dataset.problemOvertime)));
   }
 
@@ -1269,9 +1329,10 @@
     state.reputation -= reputationPenalty;
     state.unsafeHousePenaltyYear = state.year;
     addLog(voluntary ? `Игрок признал дом «${oldHouseName}» аварийным и изъял его из управления. Адрес: ${home.address}. Причина: ${reasons}. Репутация −${reputationPenalty}.` : `По истечении ${CONFIG.rules.unsafeHouseGraceSeasons} полных сезонов дом «${oldHouseName}» (${home.address}) автоматически признан аварийным и изъят из управления. Причина: ${reasons}. Репутация −${reputationPenalty}.`);
-    if (CONFIG.rules.unsafeHouseEndsGame && state.houses === 0) {
+    if (CONFIG.rules.unsafeHouseEndsGame && state.houses === 0 && availableRealEstateHomes().length === 0) {
       if (state.phase !== "annualReport") {
         const closingThroughCollection = state.phase === "collection";
+        const comparisonStart = previousAnnualReportReputation();
         if (!closingThroughCollection) cancelUnresolvedForAnnualReport();
         const annualReputation = closingThroughCollection ? null : applyAnnualReputation();
         state.lastAnnualReport = {
@@ -1281,8 +1342,8 @@
           yearStats: { ...state.yearStats },
           totals: { ...state.totals },
           reputation: annualReputation
-            ? { start: annualReputation.start, end: state.reputation, ...annualReputation.changes }
-            : { start: state.reputation + reputationPenalty, end: state.reputation, cancellationPenalty: 0, marketerBonus: 0, unsafeHousePenalty: reputationPenalty, solvencyBonus: 0, cleanHouseBonus: 0 }
+            ? { start: annualReputation.start, comparisonStart, end: state.reputation, ...annualReputation.changes }
+            : { start: state.reputation + reputationPenalty, comparisonStart, end: state.reputation, cancellationPenalty: 0, marketerBonus: 0, unsafeHousePenalty: reputationPenalty, solvencyBonus: 0, cleanHouseBonus: 0 }
         };
       } else if (state.lastAnnualReport?.year === state.year) {
         state.lastAnnualReport.capitalEnd = state.capital;
@@ -1315,13 +1376,13 @@
     const materials = problem.materialUnits || requirements.materials;
     const shortage = materialShortage(materials);
     const purchaseCost = shortage * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-    if (state.capital < purchaseCost) { showToast(`На покупку ${shortage} ед. материалов нужно ${money(purchaseCost)} ₽.`); return; }
+    if (!canCoverRequiredCost(purchaseCost)) { showToast(`На покупку ${shortage} ед. материалов нужно ${money(purchaseCost)} ₽.`); return; }
     const materialStockUsed = Math.min(state.materialStock, materials);
     if (!changeCapital(-purchaseCost, "материалы для проблемы дома")) return;
     consumeMaterials(materials);
     problem.materialUnits = materials;
     problem.materialCostPaid = purchaseCost;
-    state.seasonFinancials.problemRepairs += purchaseCost;
+    state.seasonFinancials.materials += purchaseCost;
     problem.materialPurchased = true;
     const materialLog = [`Материалы для проблемы «${problem.category}»: потребность ${quantity(materials)} условных единиц.`];
     const materialDiscountEmployees = activeEmployees().filter(employee => employee.role === "engineer" && employee.bonus === "discountProblemMaterials");
@@ -1330,7 +1391,9 @@
     materialLog.push(`Потребность: ${materials} ед.; со склада использовано ${materialStockUsed} ед., докуплено ${shortage} ед. по рыночной цене. Итого: −${money(purchaseCost)} ₽.`);
     materialLog.push(...problemLaborAdjustmentMessages(problem));
     addLogSequence(materialLog);
-    saveState(); render(); showToast(`Материалы приобретены: ${quantity(materials)} ед. · −${money(purchaseCost)} ₽`);
+    saveState(); render(); showToast(shortage === 0
+      ? `Со склада списано: ${quantity(materialStockUsed)} ед.`
+      : `Материалы приобретены: ${quantity(materials)} ед. · −${money(purchaseCost)} ₽`);
   }
 
   function assignProblemWork(problemId, employeeId, category, overtimeMode = "none") {
@@ -1353,7 +1416,7 @@
         premium = plan.premium;
         if (state.capital < premium) { showToast(`На премию за переработку нужно ${money(premium)} ₽.`); return; }
         if (premium && !changeCapital(-premium, "премия за переработку при решении проблемы")) return;
-        state.seasonFinancials.problemRepairs += premium;
+        state.seasonFinancials.salaries += premium;
         if (premium) addLog(`Премия за переработку ${roleName(employee.role)} ${employee.name}: ${money(plan.basePremium)} ₽${plan.hrMultiplier < 1 ? ` · HR снизил до ${money(premium)} ₽` : ""}.`);
       } else {
         employee.unpaidOvertime = true;
@@ -1372,17 +1435,32 @@
     saveState(); render(); showToast(completed ? `Проблема «${problem.category}» устранена силами штата.` : `Работа выполнена: ${contribution} трудозатрат.`);
   }
 
-  function hireProblemContractor(problemId) {
+  function hireProblemContractor(problemId, contractorSuppliesMaterials = false) {
     if (state.phase !== "problems") return;
     const problem = state.houseProblems.find(item => item.id === problemId);
-    if (!problem || !problem.materialPurchased) return;
+    if (!problem || (!problem.materialPurchased && !contractorSuppliesMaterials)) return;
     const contractorWork = remainingProblemContractorWork(problem);
-    if (state.capital < contractorWork) { showToast(`На работы подрядчика нужно ${money(contractorWork)} ₽.`); return; }
+    const requirements = problemRequirements(problem);
+    const materialNeed = problem.materialUnits || requirements.materials;
+    const contractorMaterialCost = contractorSuppliesMaterials && !problem.materialPurchased
+      ? materialNeed * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier
+      : 0;
+    const totalCost = contractorWork + contractorMaterialCost;
+    if (state.capital < totalCost) { showToast(`На подрядчика и материалы нужно ${money(totalCost)} ₽.`); return; }
+    if (contractorSuppliesMaterials && !problem.materialPurchased) {
+      if (!changeCapital(-contractorMaterialCost, "материалы от подрядчика")) return;
+      problem.materialUnits = materialNeed;
+      problem.materialCostPaid = contractorMaterialCost;
+      problem.materialPurchased = true;
+      problem.materialProvidedByContractor = true;
+      state.seasonFinancials.materials += contractorMaterialCost;
+      addLog(`Подрядчик предоставил ${quantity(materialNeed)} ед. материалов для проблемы «${problem.category}» по рыночной цене ${money(contractorMaterialCost)} ₽; склад не затронут.`);
+    }
     if (!changeCapital(-contractorWork, "подрядные работы по проблеме дома")) return;
-    state.seasonFinancials.problemRepairs += contractorWork;
-    addLog(`Подрядчик полностью устранил проблему «${problem.category}». Стоимость работ: ${money(contractorWork)} ₽; материалы оплачены отдельно.`);
+    state.seasonFinancials.contractors += contractorWork;
+    addLog(`Подрядчик полностью устранил проблему «${problem.category}». Стоимость работ: ${money(contractorWork)} ₽${contractorSuppliesMaterials ? `; общая стоимость с материалами ${money(totalCost)} ₽.` : "; материалы оплачены отдельно."}`);
     finishProblemRepair(problem);
-    saveState(); render(); showToast(`Проблема устранена подрядчиком: работы −${money(contractorWork)} ₽`);
+    saveState(); render(); showToast(`Проблема устранена подрядчиком: −${money(totalCost)} ₽`);
   }
 
   function renderDevTools() {
@@ -1669,6 +1747,14 @@
     else if (action === "reputation-down") state.reputation -= 1;
     else if (action === "capital-up") changeCapital(10, "DEV: увеличение бюджета");
     else if (action === "capital-down") changeCapital(-10, "DEV: уменьшение бюджета");
+    else if (["materials-down", "materials-zero", "materials-up"].includes(action)) {
+      const before = state.materialStock;
+      state.materialStock = action === "materials-zero" ? 0 : Math.max(0, before + (action === "materials-up" ? 10 : -10));
+      const delta = state.materialStock - before;
+      addLog(`DEV: склад материалов ${quantity(before)} → ${quantity(state.materialStock)} ед.`);
+      saveState(); render(); showToast(`Склад: ${quantity(state.materialStock)} ед. (${delta > 0 ? "+" : ""}${quantity(delta)} ед.)`);
+      return;
+    }
     else if (action === "reroll-market") { state.pendingHireIds = []; state.market = makeMarket(state.employees); }
     else if (action === "clear-fines") {
       const removed = state.penalties.length;
@@ -1736,9 +1822,11 @@
       const detail = role.kind === "executor" ? `Назначено ${employee.assignedLabor} трудозатрат` : role.detail;
       const adjustment = employee.withholdPercent || 0;
       const adjustmentKind = adjustment > 0 ? "Удержание" : adjustment < 0 ? "Премия" : "Без изменений";
-      const withheldControl = !employee.deceased ? `<label class="withhold-control"><span>Удержание ← · премия →</span><b><span class="withhold-adjustment-kind">${adjustmentKind}</span> · <span class="withhold-value">${Math.abs(adjustment)}</span>%</b><span class="withhold-slider-track"><input type="range" min="-50" max="50" step="1" value="${-adjustment}" data-withhold="${escapeHtml(employee.id)}" aria-label="Удержание слева, премия справа"><i class="withhold-zero-marker">0</i></span></label><small class="withhold-mood-preview">После ближайшей выплаты: ${MOOD_LABELS[projectedMood]}</small><small class="withheld-employee-total">Удержано: ${money(employee.withheldAmount || 0)} ₽</small>` : "";
-      const fireButtons = employee.deceased ? `<button class="fire-button ${pending === "paid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "paid" ? "✓ " : ""}Выплатить последнюю зарплату</button><button class="fire-unpaid-button ${pending === "unpaid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "unpaid" ? "✓ " : ""}Без выплаты</button>` : departure?.needsResponse ? `<button class="fire-button" data-stay-offer="${escapeHtml(employee.id)}">Предложить остаться · +${CONFIG.rules.employeeRetentionSalaryIncreasePercent}% ЗП</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить после хода</button>` : pending ? `<button class="fire-button" data-fire-cancel="${escapeHtml(employee.id)}">Вернуть в штат</button>` : `<button class="fire-button" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · с выплатой</button><button class="fire-unpaid-button" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · без выплаты</button>`;
-      const card = `<article class="team-member role-${role.kind} team-mood-${mood} ${employee.deceased ? "team-deceased" : ""} ${departure ? "team-departing" : ""} ${employee.probationTurns > 0 ? "team-probation" : ""} ${pending ? "team-pending-fire" : ""}"><div class="worker-icon">${employee.deceased ? "🕯️" : role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>${escapeHtml(employee.name || "Сотрудник")}</span><span>ЗП: ${money(currentSalary)} ₽ / ход${employee.probationTurns > 0 ? " · половина ставки" : ""}</span><span>${detail}</span>${employee.bonusDescription ? `<span>${escapeHtml(employee.bonusDescription)}</span>` : ""}${probation}<span>${years} ${years === 1 ? "год" : years > 1 && years < 5 ? "года" : "лет"} в компании</span>${withheldControl}</div><span class="worker-status ${mood} ${employee.deceased ? "deceased" : departure ? "departing" : ""}">${pending && !employee.deceased ? `В пуле на увольнение · ${pending === "paid" ? "с выплатой" : "без выплаты"}` : status}</span><div class="fire-actions">${fireButtons}</div></article>`;
+      const retentionRaiseUsed = employee.retentionRaiseYear === state.year;
+      const withheldControl = !employee.deceased ? `<label class="withhold-control"><span>Удержание ← · премия →</span><b><span class="withhold-adjustment-kind">${adjustmentKind}</span> · <span class="withhold-value">${Math.abs(adjustment)}</span>%</b><span class="withhold-slider-track"><input type="range" min="-50" max="50" step="1" value="${-adjustment}" data-withhold="${escapeHtml(employee.id)}" aria-label="Удержание слева, премия справа"><i class="withhold-zero-marker">0</i></span></label><small class="withhold-mood-preview">После ближайшей выплаты: ${MOOD_LABELS[projectedMood]}</small>` : "";
+      const individualWithheld = (employee.withheldAmount || 0) > 0 ? `<small class="withheld-employee-total">Удержано: ${money(employee.withheldAmount)} ₽</small><button type="button" class="pay-employee-withheld" data-pay-withheld-employee="${escapeHtml(employee.id)}" ${state.capital < employee.withheldAmount ? "disabled" : ""}>Выплатить этому сотруднику</button>` : "";
+      const fireButtons = employee.deceased ? `<button class="fire-button ${pending === "paid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "paid" ? "✓ " : ""}Выплатить последнюю зарплату</button><button class="fire-unpaid-button ${pending === "unpaid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "unpaid" ? "✓ " : ""}Без выплаты</button>` : departure?.needsResponse ? `<button class="fire-button" data-stay-offer="${escapeHtml(employee.id)}" ${retentionRaiseUsed ? "disabled title=\"Повышение зарплаты этому сотруднику уже предлагали в этом году\"" : ""}>${retentionRaiseUsed ? "Повышение уже было в этом году" : `Предложить остаться · +${CONFIG.rules.employeeRetentionSalaryIncreasePercent}% ЗП`}</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить после хода</button>` : pending ? `<button class="fire-button" data-fire-cancel="${escapeHtml(employee.id)}">Вернуть в штат</button>` : `<button class="fire-button" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · с выплатой</button><button class="fire-unpaid-button" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · без выплаты</button>`;
+      const card = `<article class="team-member role-${role.kind} team-mood-${mood} ${employee.deceased ? "team-deceased" : ""} ${departure ? "team-departing" : ""} ${employee.probationTurns > 0 ? "team-probation" : ""} ${pending ? "team-pending-fire" : ""}"><div class="worker-icon">${employee.deceased ? "🕯️" : role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>${escapeHtml(employee.name || "Сотрудник")}</span><span>ЗП: ${money(currentSalary)} ₽ / ход${employee.probationTurns > 0 ? " · половина ставки" : ""}</span><span>${detail}</span>${employee.bonusDescription ? `<span>${escapeHtml(employee.bonusDescription)}</span>` : ""}${probation}<span>${years} ${years === 1 ? "год" : years > 1 && years < 5 ? "года" : "лет"} в компании</span>${withheldControl}${individualWithheld}</div><span class="worker-status ${mood} ${employee.deceased ? "deceased" : departure ? "departing" : ""}">${pending && !employee.deceased ? `В пуле на увольнение · ${pending === "paid" ? "с выплатой" : "без выплаты"}` : status}</span><div class="fire-actions">${fireButtons}</div></article>`;
       return [employee.id, card];
     }));
     const roleOrders = { specialist: ["lawyer", "accountant", "hr", "engineer", "marketer"], executor: ["plumber", "electrician", "handyman", "janitor"] };
@@ -1773,6 +1861,7 @@
     elements.team.querySelectorAll("[data-stay-offer]").forEach(button => button.addEventListener("click", () => respondToOutsideOffer(button.dataset.stayOffer, true)));
     elements.team.querySelectorAll("[data-depart-offer]").forEach(button => button.addEventListener("click", () => respondToOutsideOffer(button.dataset.departOffer, false)));
     document.getElementById("pay-withheld-wages")?.addEventListener("click", payWithheldWages);
+    elements.team.querySelectorAll("[data-pay-withheld-employee]").forEach(button => button.addEventListener("click", () => payEmployeeWithheldWages(button.dataset.payWithheldEmployee)));
   }
 
   function renderRosterReference() {
@@ -1856,7 +1945,7 @@
       }));
     };
     paintList(elements.penalties, fullRows, fullEmpty, true, true);
-    paintList(elements.penaltiesCompact, activeRows, compactEmpty, true, false);
+    paintList(elements.penaltiesCompact, activeRows, compactEmpty, true, true);
     const toggle = document.getElementById("toggle-paid-penalties");
     if (toggle) {
       toggle.textContent = showPaidPenalties ? "Скрыть оплаченные" : "Показать оплаченные";
@@ -1883,31 +1972,32 @@
       ...state.compensations.filter(claim => !claim.paid && !claim.writtenOff && claim.amount > 0 && claim.status === "court" && claim.courtStage === "trial").map(claim => ({ type: "compensation", id: claim.id, title: `Компенсация · ${claim.title}`, amount: claim.amount, contestedBy: claim.contestedBy || [] }))
     ];
     const lawyers = activeLawyers();
-    const engineers = activeEmployees().filter(employee => employee.role === "engineer");
+    const engineers = activeEmployees().filter(employee => employee.role === "engineer" && !state.engineerMaterialsUsed.includes(employee.id));
     const lawyerBlocks = lawyers.map((lawyer, number) => {
       const done = state.lawyerActionsUsed.includes(lawyer.id);
+      if (done || !lawyerHasAvailableTask(lawyer)) return "";
       const debtLimit = lawyerDebtLimit(lawyer);
       const reductionRange = lawyerReductionRange(lawyer);
       const debt = state.houseDebtRecoverable > 0 ? `<article class="legal-option"><div><strong>Взыскать долг с дома · ЮС ${lawyer.legalStrength}</strong><span>До ${money(Math.min(debtLimit, state.houseDebtRecoverable))} ₽ · взыскиваемый долг ${money(state.houseDebtRecoverable)} ₽</span></div><button type="button" class="legal-action-button" data-lawyer="debt" data-lawyer-id="${escapeHtml(lawyer.id)}" ${done ? "disabled" : ""}>Взыскать</button></article>` : "";
-      const claims = reductionTargets.filter(target => target.type === "fine").map(target => `<article class="legal-option"><div><strong>${escapeHtml(target.title)}</strong><span>ЮС ${lawyer.legalStrength} · снижение ${reductionRange[0]}–${reductionRange[1]}% с вероятностью ${Math.round(CONFIG.rules.lawyerReductionSuccessChance * 100)}% · сумма ${money(target.amount)} ₽</span></div><button type="button" class="legal-action-button" data-lawyer="reduce" data-lawyer-id="${escapeHtml(lawyer.id)}" data-target-type="${target.type}" data-target-id="${escapeHtml(target.id)}" ${done || target.contestedBy.length > 0 ? "disabled" : ""}>Оспорить</button></article>`).join("");
-      const courtClaims = state.compensations.filter(claim => !claim.paid && !claim.writtenOff && claim.status === "court" && claim.courtStage === "trial").map(claim => {
+      const claims = reductionTargets.filter(target => target.type === "fine" && target.contestedBy.length === 0).map(target => `<article class="legal-option"><div><strong>${escapeHtml(target.title)}</strong><span>ЮС ${lawyer.legalStrength} · снижение ${reductionRange[0]}–${reductionRange[1]}% с вероятностью ${Math.round(CONFIG.rules.lawyerReductionSuccessChance * 100)}% · сумма ${money(target.amount)} ₽</span></div><button type="button" class="legal-action-button" data-lawyer="reduce" data-lawyer-id="${escapeHtml(lawyer.id)}" data-target-type="${target.type}" data-target-id="${escapeHtml(target.id)}">Оспорить</button></article>`).join("");
+      const courtClaims = state.compensations.filter(claim => !claim.paid && !claim.writtenOff && claim.status === "court" && claim.courtStage === "trial" && (!(claim.contestedBy || []).length || claim.lastDelayTurn !== state.turn)).map(claim => {
         const reduction = CONFIG.rules.compensationDelayChanceDropByLegalStrength?.[Math.max(1, Math.min(3, lawyer.legalStrength || 1)) - 1] ?? [0.3, 0.2, 0.1][Math.max(1, Math.min(3, lawyer.legalStrength || 1)) - 1];
         const chance = Math.max(0, (CONFIG.rules.compensationDelayBaseChance ?? 0.9) - claim.delayCount * reduction);
         const contested = (claim.contestedBy || []).length > 0;
-        const contestButton = `<button type="button" class="legal-action-button" data-lawyer="reduce" data-lawyer-id="${escapeHtml(lawyer.id)}" data-target-type="compensation" data-target-id="${escapeHtml(claim.id)}" ${done || contested ? "disabled" : ""}>Оспорить</button>`;
-        const delayButton = `<button type="button" class="legal-action-button" data-lawyer-delay="${escapeHtml(claim.id)}" data-lawyer-id="${escapeHtml(lawyer.id)}" ${done || claim.lastDelayTurn === state.turn ? "disabled" : ""}>Отложить</button>`;
+        const contestButton = contested ? "" : `<button type="button" class="legal-action-button" data-lawyer="reduce" data-lawyer-id="${escapeHtml(lawyer.id)}" data-target-type="compensation" data-target-id="${escapeHtml(claim.id)}">Оспорить</button>`;
+        const delayButton = claim.lastDelayTurn === state.turn ? "" : `<button type="button" class="legal-action-button" data-lawyer-delay="${escapeHtml(claim.id)}" data-lawyer-id="${escapeHtml(lawyer.id)}">Отложить</button>`;
         return `<article class="legal-option"><div><strong>Компенсация · ${escapeHtml(claim.title)}</strong><span>ЮС ${lawyer.legalStrength} · сумма ${money(claim.amount)} ₽ · снижение ${reductionRange[0]}–${reductionRange[1]}% с вероятностью ${Math.round(CONFIG.rules.lawyerReductionSuccessChance * 100)}% · перенос ${Math.round(chance * 100)}% · переносы: ${claim.delayCount}</span></div><div class="legal-actions-inline">${contestButton}${delayButton}</div></article>`;
       }).join("");
-      const forgedCases = state.legalCases.filter(caseFile => caseFile.status === "trial").map(caseFile => {
+      const forgedCases = state.legalCases.filter(caseFile => caseFile.status === "trial" && (caseFile.lastWinAttemptTurn !== state.turn || caseFile.lastDelayTurn !== state.turn)).map(caseFile => {
         const strengthIndex = Math.max(1, Math.min(3, lawyer.legalStrength || 1)) - 1;
         const chanceDrop = CONFIG.rules.compensationDelayChanceDropByLegalStrength?.[strengthIndex] ?? [0.3, 0.2, 0.1][strengthIndex];
         const delayChance = Math.max(0, (CONFIG.rules.badGameDelayBaseChance ?? 0.9) - caseFile.delayCount * chanceDrop);
         const winChance = CONFIG.rules.badGameCourtWinChance ?? 0.05;
-        const win = `<button type="button" class="legal-action-button" data-fraud-win="${escapeHtml(caseFile.id)}" data-lawyer-id="${escapeHtml(lawyer.id)}" ${done || caseFile.lastWinAttemptTurn === state.turn ? "disabled" : ""}>Попробовать выиграть · ${Math.round(winChance * 100)}%</button>`;
-        const delay = `<button type="button" class="legal-action-button" data-fraud-delay="${escapeHtml(caseFile.id)}" data-lawyer-id="${escapeHtml(lawyer.id)}" ${done || caseFile.lastDelayTurn === state.turn ? "disabled" : ""}>Отложить · ${Math.round(delayChance * 100)}%</button>`;
+        const win = caseFile.lastWinAttemptTurn === state.turn ? "" : `<button type="button" class="legal-action-button" data-fraud-win="${escapeHtml(caseFile.id)}" data-lawyer-id="${escapeHtml(lawyer.id)}">Попробовать выиграть · ${Math.round(winChance * 100)}%</button>`;
+        const delay = caseFile.lastDelayTurn === state.turn ? "" : `<button type="button" class="legal-action-button" data-fraud-delay="${escapeHtml(caseFile.id)}" data-lawyer-id="${escapeHtml(lawyer.id)}">Отложить · ${Math.round(delayChance * 100)}%</button>`;
         return `<article class="legal-option"><div><strong>Спор о доме «${escapeHtml(caseFile.houseName)}»</strong><span>${escapeHtml(caseFile.houseAddress)} · ЮС ${lawyer.legalStrength} · срок до 1 года · переносы: ${caseFile.delayCount}</span></div><div class="legal-case-actions">${win}${delay}</div></article>`;
       }).join("");
-      return `<section class="lawyer-task"><h3>${escapeHtml(ROLES[lawyer.role].name)} ${number + 1}${done ? " · задача закрыта" : " · выбери одну задачу"}</h3>${debt}${claims}${courtClaims}${forgedCases}${!debt && !claims && !courtClaims && !forgedCases ? '<div class="legal-empty">Нет доступных поручений</div>' : ""}${!done ? `<button class="legal-skip-button" data-lawyer-skip="${escapeHtml(lawyer.id)}" type="button">Пропустить задачу</button>` : ""}</section>`;
+      return `<section class="lawyer-task"><h3>${escapeHtml(ROLES[lawyer.role].name)} ${number + 1} · выбери одну задачу</h3>${debt}${claims}${courtClaims}${forgedCases}</section>`;
     }).join("");
     const engineerBlocks = engineers.map(engineer => {
       const used = state.engineerMaterialsUsed.includes(engineer.id);
@@ -1916,13 +2006,12 @@
       const price = amount * materialUnitCost(true);
       return `<article class="legal-option engineer-material-option"><div><strong>Инженер ${escapeHtml(engineer.name)} · закупить материалы</strong><span>До ${maxUnits} ед. по себестоимости · ${money(materialUnitCost(true))} ₽/ед. · запас сейчас ${quantity(state.materialStock)} ед.</span></div><label class="engineer-quantity-label">Количество: <output data-engineer-units>${amount}</output> ед.<input type="range" min="1" max="${maxUnits}" step="1" value="${amount}" data-engineer-quantity aria-label="Количество закупаемого материала"></label><button type="button" class="legal-action-button" data-engineer-buy="${escapeHtml(engineer.id)}" ${used || state.capital < price ? "disabled" : ""}>Купить</button><strong class="engineer-total-cost" data-engineer-total>Итого: ${money(price)} ₽</strong></article>`;
     }).join("");
-    elements.legalPanel.innerHTML = `${lawyers.length ? `<div class="legal-heading"><div><p class="section-label">ЗАДАЧИ ЮРИСТАМ</p><h2>Одно поручение на каждого юриста</h2></div><span class="legal-mark">§</span></div><p class="legal-copy">Штрафы можно только оспорить. По компенсации в суде юрист может оспорить сумму или один раз за ход попытаться отложить заседание. Одно обязательство можно оспорить только один раз.</p><div class="legal-options">${lawyerBlocks}</div>` : ""}${engineers.length ? `<div class="legal-heading engineer-material-heading"><div><p class="section-label">ДЕЙСТВИЕ ИНЖЕНЕРА</p><h2>Закупить материалы по себестоимости</h2></div><span class="legal-mark">⚙</span></div><div class="legal-options">${engineerBlocks}</div>` : ""}${lawyers.length && lawyersDone() ? '<div class="legal-complete">Все поручения выполнены или пропущены. Переходи к выплате зарплат.</div>' : ""}`;
+    elements.legalPanel.innerHTML = `${lawyers.some(lawyer => !state.lawyerActionsUsed.includes(lawyer.id) && lawyerHasAvailableTask(lawyer)) ? `<div class="legal-heading"><div><p class="section-label">ЗАДАЧИ ЮРИСТАМ</p><h2>Одно поручение на каждого юриста</h2></div><span class="legal-mark">§</span></div><p class="legal-copy">Штрафы можно только оспорить. По компенсации в суде юрист может оспорить сумму или один раз за ход попытаться отложить заседание. Одно обязательство можно оспорить только один раз.</p><div class="legal-options">${lawyerBlocks}</div>` : ""}${engineers.length ? `<div class="legal-heading engineer-material-heading"><div><p class="section-label">ДЕЙСТВИЕ ИНЖЕНЕРА</p><h2>Закупить материалы по себестоимости</h2></div><span class="legal-mark">⚙</span></div><div class="legal-options">${engineerBlocks}</div>` : ""}${lawyers.length && lawyersDone() ? '<div class="legal-complete">Все доступные поручения выполнены. Переходи к выплате зарплат.</div>' : ""}`;
     elements.legalPanel.querySelectorAll('[data-lawyer="debt"]').forEach(button => button.addEventListener("click", () => collectHouseDebt(button.dataset.lawyerId)));
     elements.legalPanel.querySelectorAll('[data-lawyer="reduce"]').forEach(button => button.addEventListener("click", () => reduceLiability(button.dataset.targetType, button.dataset.targetId, button.dataset.lawyerId)));
     elements.legalPanel.querySelectorAll("[data-lawyer-delay]").forEach(button => button.addEventListener("click", () => postponeCompensationCase(button.dataset.lawyerDelay, button.dataset.lawyerId)));
     elements.legalPanel.querySelectorAll("[data-fraud-win]").forEach(button => button.addEventListener("click", () => tryWinForgedHouseCase(button.dataset.fraudWin, button.dataset.lawyerId)));
     elements.legalPanel.querySelectorAll("[data-fraud-delay]").forEach(button => button.addEventListener("click", () => postponeForgedHouseCase(button.dataset.fraudDelay, button.dataset.lawyerId)));
-    elements.legalPanel.querySelectorAll("[data-lawyer-skip]").forEach(button => button.addEventListener("click", () => skipLawyerAction(button.dataset.lawyerSkip)));
     elements.legalPanel.querySelectorAll("[data-engineer-quantity]").forEach(input => input.addEventListener("input", () => {
       const row = input.closest(".legal-option");
       const units = Number(input.value);
@@ -1945,7 +2034,7 @@
     if (!changeCapital(-cost, "закупка материалов инженером")) return;
     state.materialStock += units;
     state.engineerMaterialsUsed.push(engineerId);
-    state.seasonFinancials.problemRepairs += cost;
+    state.seasonFinancials.materials += cost;
     addLog(`Инженер ${engineer.name} закупил ${quantity(units)} ед. материалов по себестоимости ${money(unitCost)} ₽/ед. Запас: ${quantity(state.materialStock)} ед.; расход: ${money(cost)} ₽.`);
     saveState(); render(); showToast(`Инженер закупил ${quantity(units)} ед. материалов.`);
   }
@@ -2077,28 +2166,44 @@
       const cashPrice = requestMoneyCost(card);
       const materialUnits = requestMaterialUnits(card);
       const materialCost = requestMaterialPurchaseCost(card);
+      const materialShortageUnits = materialShortage(materialUnits);
       const houseAddress = card.houseAddress || managedHomeByName(card.houseName)?.address || "Адрес не указан";
       if (card.cancelled) return `<article class="request-card request-cancelled"><div class="request-icon">×</div><div class="request-info"><div class="request-meta"><span>${escapeHtml(houseAddress)}</span><span>${escapeHtml(card.category)}</span><span class="request-type-badge type-${card.type}">${requestAttributeLabel(card.type)}</span><span class="labor-badge">${card.labor ? `${card.labor} трудозатрат` : "Только материалы"}</span><span class="cancelled-label">ОТМЕНЕНА</span></div><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.description)}</p></div><div class="request-cost request-cancelled-status"><span>Отменена</span><span class="cancelled-x">×</span></div></article>`;
     const workers = card.labor > 0 ? activeEmployees().filter(employee => employee.role && ROLES[employee.role].category === card.category) : [];
       const isCarried = card.receivedTurn !== state.turn;
-      const contractorNet = card.type === "paid" ? card.payout - cashPrice : 0;
+      const contractorMaterialCost = materialUnits * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
+      const combinedCashPrice = requestContractorWorkCost(card) + contractorMaterialCost;
+      const contractorNet = card.payout - cashPrice;
+      const combinedContractorNet = card.payout - combinedCashPrice;
       const unpaid = !card.resolved && (isCarried || requestIsOverdue(card));
-      return `<article class="request-card ${card.resolved ? "resolved" : ""} ${unpaid ? "request-overdue" : ""}" data-request-card-id="${escapeHtml(card.id)}">
-        <div class="request-icon">${escapeHtml(card.icon)}</div><div class="request-info"><div class="request-meta"><span class="request-house-address">${escapeHtml(houseAddress)}</span><span class="request-category">${escapeHtml(card.category)}</span><span class="request-type-badge type-${card.type}">${requestAttributeLabel(card.type)}</span>${card.repeat ? '<span class="repeat-request-badge">Повторная</span>' : ""}<span class="labor-badge">${card.labor ? `${card.labor} трудозатрат` : "Без трудозатрат"}</span>${unpaid ? '<span class="overdue-label">ПРОСРОЧЕНА</span>' : ""}${card.resolved ? `<span class="resolved-label">${card.resolvedBy === "contractor" ? "ВЫПОЛНЕНА ПОДРЯДЧИКОМ" : card.resolvedBy === "oss" ? "ВЫПОЛНЕНА ПО ОСС" : "РЕШЕНО"}</span>` : ""}</div><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.description)}</p><div class="request-material-line">${card.type === "paid" ? "Материалы оплачивает заявитель" : `Материалы: ${quantity(materialUnits)} ед. · на складе ${quantity(state.materialStock)} · докупить за ${money(materialCost)} ₽`}${card.damageCompensation ? ` · ущерб выплачивается отдельно: ${money(card.damageCompensation)} ₽` : ""}</div></div>
-        <div class="request-cost">${card.resolved ? '<div class="request-complete-status"><span>Выполнена</span><span class="done-check">✓</span></div>' : `<div class="request-actions">${workers.map(worker => {
-          const plan = overtimeFor(worker, card.labor);
-          const disabled = state.phase !== "resolving";
-          const label = plan.premium ? `${roleName(worker.role)} · премия ${money(plan.premium)} ₽` : `${roleName(worker.role)} (${worker.assignedLabor + card.labor}/${effectiveProductivity(worker)})`;
-          const workerCost = plan.premium + materialCost;
-          return `<div class="request-action-row">${card.type === "paid" ? `<span class="action-income">+${money(card.payout)} ₽</span>` : ""}<button type="button" class="staff-solve-button" data-worker="${escapeHtml(worker.id)}" data-index="${index}" ${disabled || state.capital < workerCost ? "disabled" : ""}>Сотрудник: ${label}${materialCost ? ` · материалы ${money(materialCost)} ₽` : ""}${card.damageCompensation ? " · компенсация отдельно" : ""}</button></div>${plan.premium ? `<div class="request-action-row">${card.type === "paid" ? `<span class="action-income">+${money(card.payout)} ₽</span>` : ""}<button type="button" class="overtime-unpaid-button" data-worker="${escapeHtml(worker.id)}" data-index="${index}" ${disabled || state.capital < materialCost ? "disabled" : ""}>Без премии · недовольство${materialCost ? ` · материалы ${money(materialCost)} ₽` : ""}${card.damageCompensation ? " · компенсация отдельно" : ""}</button></div>` : ""}`;
-        }).join("")}<div class="request-action-row">${card.type === "paid" ? `<span class="action-income">${contractorNet >= 0 ? "+" : "−"}${money(Math.abs(contractorNet))} ₽</span>` : ""}<button type="button" class="solve-button" data-index="${index}" ${state.phase !== "resolving" || state.capital < cashPrice ? "disabled" : ""}>Привлечь подрядчика · ${money(cashPrice)} ₽ <span>↗</span></button></div>${isEmergency(card) ? '<span class="emergency-lock-note">Аварийную нельзя отменить</span>' : `<button type="button" class="request-cancel-button" data-index="${index}" ${state.phase !== "resolving" ? "disabled" : ""}>Отменить заявку</button>`}</div>`}</div>
+      const regularWorkerActions = [];
+      const paidOvertimeActions = [];
+      const unpaidOvertimeActions = [];
+      workers.forEach(worker => {
+        const plan = overtimeFor(worker, card.labor);
+        const disabled = state.phase !== "resolving";
+        const label = `${roleName(worker.role)}: ${escapeHtml(worker.name || roleName(worker.role))}`;
+        const productivityLabel = `<span class="worker-productivity-count">(${quantity(Math.max(0, effectiveProductivity(worker) - worker.assignedLabor))}/${quantity(effectiveProductivity(worker))})</span>`;
+        const overtimeLabel = plan.premium ? ` · премия ${money(plan.premium)} ₽` : "";
+        const workerCost = plan.premium + materialCost;
+        const income = card.type === "paid" ? `<span class="action-income">+${money(card.payout)} ₽</span>` : "";
+        if (!plan.premium) {
+          regularWorkerActions.push(`<div class="request-action-row ${card.type === "paid" ? "paid-action-row" : ""}">${income}<button type="button" class="staff-solve-button" data-worker="${escapeHtml(worker.id)}" data-index="${index}" ${disabled || !canCoverRequiredCost(workerCost) ? "disabled" : ""}>${label} · ${productivityLabel}${materialCost ? ` · материалы ${money(materialCost)} ₽` : ""}${card.damageCompensation ? " · компенсация отдельно" : ""}</button></div>`);
+          return;
+        }
+        paidOvertimeActions.push(`<div class="request-action-row ${card.type === "paid" ? "paid-action-row" : ""}">${income}<button type="button" class="staff-solve-button" data-worker="${escapeHtml(worker.id)}" data-index="${index}" ${disabled || !canCoverRequiredCost(workerCost) ? "disabled" : ""}>${label} · ${productivityLabel}${overtimeLabel}${materialCost ? ` · материалы ${money(materialCost)} ₽` : ""}${card.damageCompensation ? " · компенсация отдельно" : ""}</button></div>`);
+        unpaidOvertimeActions.push(`<div class="request-action-row ${card.type === "paid" ? "paid-action-row" : ""}">${income}<button type="button" class="overtime-unpaid-button" data-worker="${escapeHtml(worker.id)}" data-index="${index}" ${disabled || !canCoverRequiredCost(materialCost) ? "disabled" : ""}>${label} · ${productivityLabel} · без премии, недовольство${materialCost ? ` · материалы ${money(materialCost)} ₽` : ""}${card.damageCompensation ? " · компенсация отдельно" : ""}</button></div>`);
+      });
+      return `<article class="request-card ${card.type === "paid" ? "paid-request-card" : ""} ${card.resolved ? "resolved" : ""} ${unpaid ? "request-overdue" : ""}" data-request-card-id="${escapeHtml(card.id)}">
+        <div class="request-icon">${escapeHtml(card.icon)}</div><div class="request-info"><div class="request-meta"><div class="request-meta-line"><span class="request-house-address">${escapeHtml(houseAddress)}</span><span class="request-type-badge type-${card.type}">${requestAttributeLabel(card.type)}</span>${card.repeat ? '<span class="repeat-request-badge">Повторная</span>' : ""}${unpaid ? '<span class="overdue-label">ПРОСРОЧЕНА</span>' : ""}${card.resolved ? `<span class="resolved-label">${card.resolvedBy === "contractor" ? "ВЫПОЛНЕНА ПОДРЯДЧИКОМ" : card.resolvedBy === "oss" ? "ВЫПОЛНЕНА ПО ОСС" : "РЕШЕНО"}</span>` : ""}</div><div class="request-meta-line"><span class="request-category">${escapeHtml(card.category)}</span><span class="labor-badge">Трудозатрат: ${quantity(card.labor || 0)}</span></div></div><div class="request-material-line">${card.type === "paid" ? "Материалы оплачивает заявитель" : `Материалы: ${quantity(materialUnits)} ед.${materialUnits === 0 ? " · не требуются" : materialShortageUnits > 0 ? ` · докупить ${quantity(materialShortageUnits)} ед. за ${money(materialCost)} ₽` : " · со склада"}`}${card.damageCompensation ? ` · ущерб выплачивается отдельно: ${money(card.damageCompensation)} ₽` : ""}</div><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.description)}</p></div>
+        <div class="request-cost">${card.resolved ? '<div class="request-complete-status"><span>Выполнена</span><span class="done-check">✓</span></div>' : `<div class="request-actions">${regularWorkerActions.join("")}${paidOvertimeActions.join("")}${unpaidOvertimeActions.join("")}<div class="request-action-row contractor-action-row ${materialUnits > 0 ? "has-bundled-materials" : "single-contractor"} ${card.type === "paid" ? "paid-contractor-action-row" : ""}"><div class="contractor-method ${card.type === "paid" ? "paid-contractor-method" : ""}">${card.type === "paid" ? `<span class="action-income">${contractorNet >= 0 ? "+" : "−"}${money(Math.abs(contractorNet))} ₽</span>` : ""}<button type="button" class="solve-button" data-index="${index}" ${state.phase !== "resolving" ? "disabled" : ""}>Привлечь подрядчика · ${money(cashPrice)} ₽</button></div>${materialUnits > 0 ? `<div class="contractor-method ${card.type === "paid" ? "paid-contractor-method" : ""}">${card.type === "paid" ? `<span class="action-income">${combinedContractorNet >= 0 ? "+" : "−"}${money(Math.abs(combinedContractorNet))} ₽</span>` : ""}<button type="button" class="solve-button solve-material-button" data-index="${index}" data-combined="true" ${state.phase !== "resolving" ? "disabled" : ""}>Подрядчик + Материал: ${money(combinedCashPrice)} ₽</button></div>` : ""}</div>${isEmergency(card) ? '<span class="emergency-lock-note">Аварийную нельзя отменить</span>' : `<button type="button" class="request-cancel-button" data-index="${index}" ${state.phase !== "resolving" ? "disabled" : ""}>Отменить заявку</button>`}</div>`}</div>
       </article>`;
     }).join("");
     const representedCancelledIds = new Set(state.requests.filter(card => card.cancelled).map(card => card.id));
     const cancelledPool = state.cancelledRequests.filter(card => !card.returnedTurn && !representedCancelledIds.has(card.id));
     const poolMarkup = cancelledPool.length ? `<details class="cancelled-request-pool"><summary>Пул отменённых заявок <span>${cancelledPool.length}</span></summary><div class="cancelled-pool-list">${cancelledPool.map(card => `<article class="cancelled-pool-item"><div><strong>${escapeHtml(card.houseAddress || managedHomeByName(card.houseName)?.address || "Адрес не указан")} · ${escapeHtml(card.title)}</strong><span>${escapeHtml(card.category)} · ${requestAttributeLabel(card.type)}${card.repeat ? " · уже повторная" : ""} · вернётся автоматически через ${Math.max(0, (card.returnAfterTurn || (state.turn + 4 * state.seasonDuration)) - state.turn)} ходов</span></div></article>`).join("")}</div></details>` : "";
     elements.list.innerHTML = `${requestMarkup || '<div class="empty-state"><div class="empty-icon">↘</div><div><strong>Новый день начинается</strong><p>После найма прими заявки, чтобы узнать, что случилось в доме.</p></div></div>'}${poolMarkup}`;
-    elements.list.querySelectorAll(".solve-button").forEach(button => button.addEventListener("click", () => resolveWithMoney(Number(button.dataset.index))));
+    elements.list.querySelectorAll(".solve-button").forEach(button => button.addEventListener("click", () => resolveWithMoney(Number(button.dataset.index), button.dataset.combined === "true")));
     elements.list.querySelectorAll(".staff-solve-button").forEach(button => button.addEventListener("click", () => resolveWithEmployee(Number(button.dataset.index), button.dataset.worker)));
     elements.list.querySelectorAll(".overtime-unpaid-button").forEach(button => button.addEventListener("click", () => resolveWithoutPremium(Number(button.dataset.index), button.dataset.worker)));
     elements.list.querySelectorAll(".request-cancel-button").forEach(button => button.addEventListener("click", () => cancelRequest(Number(button.dataset.index))));
@@ -2116,15 +2221,20 @@
     if (!report) { elements.annualReport.innerHTML = ""; return; }
     const counts = values => `<div class="report-count-grid"><div><span>Принято заявок</span><b>${values.accepted}</b></div><div><span>Выполнено заявок</span><b>${values.completed}</b></div><div><span>Отменено заявок</span><b>${values.cancelled}</b></div><div><span>Сотрудников нанято</span><b>${values.hired}</b></div><div><span>Сотрудников уволено</span><b>${values.fired}</b></div></div>`;
     const reputation = report.reputation || { start: state.reputation, end: state.reputation, cancellationPenalty: 0, marketerBonus: 0, unsafeHousePenalty: 0, solvencyBonus: 0, cleanHouseBonus: 0 };
+    const maintenanceGrowth = Array.isArray(report.maintenanceGrowth) ? report.maintenanceGrowth : [];
+    const maintenanceGrowthBlock = `<section class="report-maintenance-growth"><h3>Изменение базового обслуживания</h3>${maintenanceGrowth.length ? maintenanceGrowth.map(change => `<div><span>${escapeHtml(change.address)} · ${escapeHtml(change.name)}</span><b>${money(change.previous)} → ${money(change.updated)} ₽/ход <i>(+${change.growthPercent}%)</i></b></div>`).join("") : '<p>Данные о росте БО за этот год отсутствуют.</p>'}</section>`;
     const repText = value => `${value > 0 ? "+" : ""}${value}`;
     const tariffOss = managedHomes().map(home => home.tariffOssResolvedYear === state.year
       ? `<div class="oss-result-note"><b>${escapeHtml(home.address)} · ${escapeHtml(home.name)}</b>: решение по ОСС на тариф зафиксировано в этом году. Тариф дома: <b>${money(currentTariff(home))} ₽/м²</b>.</div>`
-      : `<div class="oss-tariff-controls house-tariff-oss" data-tariff-house="${escapeHtml(home.name)}"><b>${escapeHtml(home.address)} · ${escapeHtml(home.name)}</b><label>Изменение тарифа, ₽/м²</label><input class="oss-tariff-increase" type="number" step="0.01" value="1"><button class="oss-action-button" data-run-tariff-oss="${escapeHtml(home.name)}" type="button">Провести ОСС для изменения тарифа</button><button class="oss-skip-button" data-skip-tariff-oss="${escapeHtml(home.name)}" type="button">Не проводить ОСС · получить +1 репутацию</button><p>Тариф дома: ${money(currentTariff(home))} ₽/м². X — положительное значение повышает тариф, отрицательное снижает. Тариф не может стать ниже 0 ₽/м².</p></div>`).join("");
+      : `<div class="oss-tariff-controls house-tariff-oss" data-tariff-house="${escapeHtml(home.name)}"><b>${escapeHtml(home.address)} · ${escapeHtml(home.name)}</b><label>Изменение тарифа, ₽/м²</label><input class="oss-tariff-increase" type="number" step="0.01" value="1"><button class="oss-action-button" data-run-tariff-oss="${escapeHtml(home.name)}" type="button">Провести ОСС для изменения тарифа</button><button class="oss-skip-button" data-skip-tariff-oss="${escapeHtml(home.name)}" type="button">Не проводить ОСС · получить +1 репутацию</button><p>Тариф дома: ${money(currentTariff(home))} ₽/м². Максимальное повышение при текущей репутации: ${maxTariffIncreasePercent(state.reputation)}% (${money(currentTariff(home) * maxTariffIncreasePercent(state.reputation) / 100)} ₽/м²). Превышение будет ограничено этим пределом. Отрицательное X снижает тариф; тариф не может стать ниже 0 ₽/м².</p></div>`).join("");
     const weightedCancellations = reputationCancellationCount(report.year);
     const repeatCancelledCount = state.cancelledRequests.filter(card => card.year === report.year && card.repeat && card.type !== "paid").length;
     const cancellationSummary = `${report.yearStats.cancelled} фактических отмен${repeatCancelledCount ? ` (включая ${repeatCancelledCount} повторных, каждая считается за две)` : ""}`;
-    const reputationBlock = `<div class="report-reputation"><div><span>Репутация игрока</span><b>${repText(reputation.start)} → ${repText(reputation.end)}</b></div><ul><li>${reputation.cancellationPenalty ? `−${reputation.cancellationPenalty} за ${cancellationSummary}: ${weightedCancellations} штрафных единиц` : "Нет штрафа за отменённые заявки"}</li><li>${reputation.marketerBonus ? `+${reputation.marketerBonus}: бонусы маркетологов` : "Бонус маркетологов не начислен"}</li><li>${reputation.solvencyBonus ? "+1: год закрыт без долгов" : "Бонус за отсутствие долгов не получен"}</li><li>${reputation.cleanHouseBonus ? "+1: на доме нет отменённых заявок" : "Бонус за отсутствие отмен не получен"}</li><li>${reputation.unsafeHousePenalty ? "−2: аварийный дом изъят из игры" : "Нет штрафа за аварийный дом"}</li><li>${reputation.tariffNoAttemptBonus ? `+${reputation.tariffNoAttemptBonus}: ОСС для повышения тарифа не проводилось` : ""}</li></ul></div>`;
-    elements.annualReport.innerHTML = `<div class="report-heading"><div><p class="section-label">ИТОГИ ГОДА ${report.year}</p><h2>Годовой отчёт</h2></div><span class="report-stamp">ЗАКРЫТ</span></div>${reputationBlock}<div class="report-columns"><section class="report-column"><h3>За прошедший год</h3><div class="report-money"><div><span>Деньги на начало года</span><b>${money(report.capitalStart)} ₽</b></div><div><span>Деньги на конец года</span><b>${money(report.capitalEnd)} ₽</b></div></div>${counts(report.yearStats)}</section><section class="report-column"><h3>За всё время игры</h3>${counts(report.totals)}</section></div><p class="report-footnote">Отменённые заявки за игру: <b>${state.cancelledRequests.length}</b>. ${state.houseRemoved ? "Дом изъят из игры; аварийные заявки не дают отдельного штрафа репутации." : "Все невыполненные заявки автоматически отменены перед отчётом."}</p>${(state.houseRemoved && CONFIG.rules.unsafeHouseEndsGame) ? `<div class="house-removed-notice">Дом признан аварийным и изъят из игры. Репутация снижена на ${CONFIG.rules.unsafeHouseReputationPenalty}. Игра завершена.</div>` : `<div class="annual-actions"><section class="house-tariff-oss-list"><h3>ОСС на изменение тарифа по домам</h3>${tariffOss || '<p>Нет домов в управлении.</p>'}</section><button class="primary-button next-year-button" id="next-year-button" type="button"><span>Начать новый год · лето</span><span class="button-arrow">↗</span></button></div>`}`;
+    const reportReputationStart = Number.isFinite(reputation.comparisonStart) ? reputation.comparisonStart : reputation.start;
+    const reportReputationDelta = reputation.end - reportReputationStart;
+    const reputationBlock = `<div class="report-reputation"><div><span>Репутация · с прошлого годового отчёта</span><b>${repText(reportReputationStart)} → ${repText(reputation.end)} · Δ ${repText(reportReputationDelta)}</b></div><ul><li>${reputation.cancellationPenalty ? `−${reputation.cancellationPenalty} за ${cancellationSummary}: ${weightedCancellations} штрафных единиц` : "Нет штрафа за отменённые заявки"}</li><li>${reputation.marketerBonus ? `+${reputation.marketerBonus}: бонусы маркетологов` : "Бонус маркетологов не начислен"}</li><li>${reputation.solvencyBonus ? "+1: год закрыт без долгов" : "Бонус за отсутствие долгов не получен"}</li><li>${reputation.cleanHouseBonus ? "+1: на доме нет отменённых заявок" : "Бонус за отсутствие отмен не получен"}</li><li>${reputation.unsafeHousePenalty ? "−2: аварийный дом изъят из игры" : "Нет штрафа за аварийный дом"}</li><li>${reputation.tariffNoAttemptBonus ? `+${reputation.tariffNoAttemptBonus}: ОСС для повышения тарифа не проводилось` : ""}</li></ul></div>`;
+    const noHomesAndNoMarket = state.houses === 0 && availableRealEstateHomes().length === 0;
+    elements.annualReport.innerHTML = `<div class="report-heading"><div><p class="section-label">ИТОГИ ГОДА ${report.year}</p><h2>Годовой отчёт</h2></div><span class="report-stamp">ЗАКРЫТ</span></div>${reputationBlock}<div class="report-columns"><section class="report-column"><h3>За прошедший год</h3><div class="report-money"><div><span>Деньги на начало года</span><b>${money(report.capitalStart)} ₽</b></div><div><span>Деньги на конец года</span><b>${money(report.capitalEnd)} ₽</b></div></div>${counts(report.yearStats)}</section><section class="report-column"><h3>За всё время игры</h3>${counts(report.totals)}</section></div>${maintenanceGrowthBlock}<p class="report-footnote">Отменённые заявки за игру: <b>${state.cancelledRequests.length}</b>. ${state.houses === 0 ? "В управлении пока нет домов; доступные объекты можно посмотреть на рынке недвижимости." : "Все невыполненные заявки автоматически отменены перед отчётом."}</p>${(noHomesAndNoMarket && CONFIG.rules.unsafeHouseEndsGame) ? `<div class="house-removed-notice">В управлении нет домов, и на рынке недвижимости не осталось доступных объектов. Игра завершена.</div>` : `<div class="annual-actions"><section class="house-tariff-oss-list"><h3>ОСС на изменение тарифа по домам</h3>${tariffOss || '<p>Нет домов в управлении.</p>'}</section><button class="primary-button next-year-button" id="next-year-button" type="button"><span>Начать новый год · лето</span><span class="button-arrow">↗</span></button></div>`}`;
     document.getElementById("next-year-button")?.addEventListener("click", startNewYear);
     elements.annualReport.querySelectorAll("[data-run-tariff-oss]").forEach(button => button.addEventListener("click", () => runTariffOss(button.dataset.runTariffOss)));
     elements.annualReport.querySelectorAll("[data-skip-tariff-oss]").forEach(button => button.addEventListener("click", () => skipTariffOss(button.dataset.skipTariffOss)));
@@ -2167,6 +2277,9 @@
     state.reputation += delta;
     if (state.financialHistory.length) state.financialHistory[state.financialHistory.length - 1].reputation = state.reputation;
     return { start, delta, changes };
+  }
+  function previousAnnualReportReputation() {
+    return Number.isFinite(state.lastAnnualReport?.reputation?.end) ? state.lastAnnualReport.reputation.end : CONFIG.economy.startingReputation;
   }
 
   function checkBankruptcy() {
@@ -2536,6 +2649,11 @@
 
   function advanceLiabilityTimers(seasonLog = []) {
     const paymentTurns = CONFIG.rules.compensationPaymentTurns ?? 4;
+    state.legalCases.filter(caseFile => caseFile.caseType === "forgedHouse" && caseFile.status === "trial").forEach(caseFile => {
+      const ongoingReputationPenalty = CONFIG.rules.badGameForgeryOngoingReputationPenalty ?? 1;
+      state.reputation -= ongoingReputationPenalty;
+      seasonLog.push(`Дело о подделке подписей по дому «${caseFile.houseName}» остаётся в суде: репутация −${ongoingReputationPenalty} за этот ход.`);
+    });
     state.compensations.forEach(claim => {
       if (claim.paid || claim.writtenOff || claim.amount <= 0) return;
       if (claim.status === "pretrial") {
@@ -2691,26 +2809,42 @@
     saveState(); render(); showToast(`ОСС по дому «${home.name}» пропущено.`);
   }
 
+  function maxTariffIncreasePercent(reputation) {
+    if (reputation < -10) return 2.5;
+    if (reputation < 0) return 5;
+    if (reputation < 10) return 7.5;
+    if (reputation < 20) return 10;
+    if (reputation < 30) return 20;
+    if (reputation < 40) return 30;
+    return 50;
+  }
+
   function runTariffOss(houseName) {
     const home = managedHomeByName(houseName);
     if (state.phase !== "annualReport" || !home || home.tariffOssResolvedYear === state.year) return;
     const controls = [...elements.annualReport.querySelectorAll(".house-tariff-oss")].find(item => item.dataset.tariffHouse === houseName);
     const input = controls?.querySelector(".oss-tariff-increase");
-    const change = Number(input?.value);
-    if (!Number.isFinite(change) || change === 0) { showToast("Укажи ненулевое изменение тарифа."); input?.focus(); return; }
-    if (currentTariff(home) + change < 0) { showToast("Тариф не может стать ниже 0 ₽/м²."); input?.focus(); return; }
+    const requestedChange = Number(input?.value);
+    if (!Number.isFinite(requestedChange) || requestedChange === 0) { showToast("Укажи ненулевое изменение тарифа."); input?.focus(); return; }
+    const tariffBeforeVote = currentTariff(home);
+    const maximumIncrease = Math.round(tariffBeforeVote * maxTariffIncreasePercent(state.reputation)) / 100;
+    const change = requestedChange > 0 ? Math.min(requestedChange, maximumIncrease) : requestedChange;
+    if (change === 0) { showToast("При текущем тарифе повышение невозможно."); input?.focus(); return; }
+    if (tariffBeforeVote + change < 0) { showToast("Тариф не может стать ниже 0 ₽/м²."); input?.focus(); return; }
     state.tariffOssAttempts += 1;
     const direction = change > 0 ? "Повысить" : "Снизить";
     const homeCancelled = state.cancelledRequests.filter(card => card.houseName === home.name).length;
-    const vote = ossVote(`${direction} тариф на ${money(Math.abs(change))} ₽`, change, { includeReputation: true, area: home.area, cancelledCountOverride: homeCancelled, cancelledMultiplier: 2, logHouseAddress: home.address });
+    const cappedRequest = requestedChange > change;
+    const voteQuestion = `${direction} тариф на ${money(Math.abs(change))} ₽${cappedRequest ? ` (запрошено ${money(requestedChange)} ₽)` : ""}`;
+    const vote = ossVote(voteQuestion, change, { includeReputation: true, area: home.area, cancelledCountOverride: homeCancelled, cancelledMultiplier: 2, logHouseAddress: home.address });
     setHomeField(home, "tariffOssResolvedYear", state.year);
     if (vote.success) {
       setHomeField(home, "tariffPerSquareMeter", Math.round((currentTariff(home) + change) * 100) / 100);
-      addLog(`ОСС принято в доме «${home.name}» (${home.address}). Тариф ${change > 0 ? "повышен" : "снижен"} на ${money(Math.abs(change))} ₽: теперь ${money(currentTariff(home))} ₽/м².`);
-      showToast(`ОСС принято: тариф дома «${home.name}» теперь ${money(currentTariff(home))} ₽/м².`);
+      addLog(`ОСС принято в доме «${home.name}» (${home.address}). Тариф ${change > 0 ? "повышен" : "снижен"} на ${money(Math.abs(change))} ₽: теперь ${money(currentTariff(home))} ₽/м².${requestedChange > change ? ` Запрошено повышение ${money(requestedChange)} ₽, применён предел ${maxTariffIncreasePercent(state.reputation)}% репутации.` : ""}`);
+      showToast(`ОСС принято: тариф дома «${home.name}» теперь ${money(currentTariff(home))} ₽/м².${requestedChange > change ? ` Повышение ограничено ${maxTariffIncreasePercent(state.reputation)}%.` : ""}`);
     } else {
-      addLog(`ОСС на изменение тарифа дома «${home.name}» не набрало кворум. Повторная попытка в этом отчёте недоступна.`);
-      showToast(`ОСС дома «${home.name}» не набрало кворум. Попробовать снова в этом отчёте нельзя.`);
+      addLog(`ОСС на изменение тарифа дома «${home.name}» не набрало кворум.${cappedRequest ? ` Запрошено повышение ${money(requestedChange)} ₽, в расчёте использован предел ${money(change)} ₽ (${maxTariffIncreasePercent(state.reputation)}% репутации).` : ""} Повторная попытка в этом отчёте недоступна.`);
+      showToast(`ОСС дома «${home.name}» не набрало кворум. Попробовать снова в этом отчёте нельзя.${cappedRequest ? ` В расчёте применён предел ${maxTariffIncreasePercent(state.reputation)}%.` : ""}`);
     }
     saveState(); render();
   }
@@ -2835,20 +2969,26 @@
     saveState(); render(); showToast(success ? "Иск удовлетворён: застройщик устраняет проблемы без затрат на работы и материалы." : "Суд отказал в иске; госпошлина списана.");
   }
 
-  function resolveWithMoney(index) {
+  function resolveWithMoney(index, contractorSuppliesMaterials = false) {
     const card = state.requests[index];
     if (!card || card.resolved || state.phase !== "resolving") return;
-    const cashCost = requestMoneyCost(card);
-    if (state.capital < cashCost) { showToast("Недостаточно капитала для оплаты подрядчику."); return; }
+    const baseMaterialCost = requestMaterialPurchaseCost(card);
+    const contractorMaterialCost = contractorSuppliesMaterials
+      ? requestMaterialUnits(card) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier
+      : baseMaterialCost;
+    const cashCost = requestContractorWorkCost(card) + contractorMaterialCost;
     if (!changeCapital(-cashCost, "оплата подрядчика")) return;
     const materialUnits = requestMaterialUnits(card);
-    const materialStockUsed = consumeMaterials(materialUnits);
-    const materialPurchase = requestMaterialPurchaseCost(card);
-    if (materialPurchase) state.seasonFinancials.problemRepairs += materialPurchase;
+    const materialStockUsed = contractorSuppliesMaterials ? 0 : consumeMaterials(materialUnits);
+    const materialPurchase = contractorMaterialCost;
+    if (materialPurchase) state.seasonFinancials.materials += materialPurchase;
+    state.seasonFinancials.contractors += requestContractorWorkCost(card);
     if (!changeCapital(card.payout, "доход по платной заявке")) return;
     state.seasonFinancials.paidIncome += card.payout || 0;
     completeRequest(card, "contractor");
-    addLog(card.payout ? `Платная заявка «${card.title}» выполнена через подрядчика. Расход: ${money(cashCost)} ₽, доход: ${money(card.payout)} ₽.` : `Решена заявка «${card.title}» оплатой. Расход: ${money(cashCost)} ₽; материалов ${quantity(materialUnits)} ед. (склад ${quantity(materialStockUsed)}, покупка ${quantity(materialUnits - materialStockUsed)}).`);
+    addLog(card.payout ? `Платная заявка «${card.title}» выполнена через подрядчика. Расход: ${money(cashCost)} ₽, доход: ${money(card.payout)} ₽.` : contractorSuppliesMaterials
+      ? `Заявка «${card.title}» выполнена подрядчиком с его материалами: работы ${money(requestContractorWorkCost(card))} ₽, материалы ${quantity(materialUnits)} ед. по рыночной цене ${money(materialPurchase)} ₽. Со склада ничего не списано.`
+      : `Решена заявка «${card.title}» оплатой. Расход: ${money(cashCost)} ₽; материалов ${quantity(materialUnits)} ед. (склад ${quantity(materialStockUsed)}, покупка ${quantity(materialUnits - materialStockUsed)}).`);
     checkBankruptcy();
     saveState(); render(); showToast(card.payout ? `Подрядчик выполнит работу: +${money(card.payout - cashCost)} ₽ прибыли` : `Заявка оплачена: −${money(cashCost)} ₽`);
   }
@@ -2861,13 +3001,14 @@
     const materialUnits = requestMaterialUnits(card);
     const materialCost = requestMaterialPurchaseCost(card);
     const materialAndBonus = plan.premium + materialCost;
-    if (state.capital < materialAndBonus) { showToast("Не хватает денег на материалы и премию."); return; }
+    if (!canCoverRequiredCost(materialAndBonus)) { showToast("Не хватает денег на материалы и премию."); return; }
     employee.assignedLabor = plan.laborAfter;
     if (!changeCapital(-materialCost, "материалы по заявке")) return;
     const materialStockUsed = consumeMaterials(materialUnits);
-    if (materialCost) state.seasonFinancials.problemRepairs += materialCost;
+    if (materialCost) state.seasonFinancials.materials += materialCost;
     if (plan.premium) {
       if (!changeCapital(-plan.premium, "премия за переработку")) return;
+      state.seasonFinancials.salaries += plan.premium;
       const overtimeLog = [`${roleName(employee.role)} ${employee.name} выполнил заявку «${card.title}» с переработкой.`];
       if (plan.hrMultiplier < 1) {
         const hr = activeEmployees().find(person => person.role === "hr");
@@ -2894,11 +3035,11 @@
     if (!plan.premium) return;
     const materialUnits = requestMaterialUnits(card);
     const materialCost = requestMaterialPurchaseCost(card);
-    if (state.capital < materialCost) { showToast("Не хватает денег на материалы."); return; }
+    if (!canCoverRequiredCost(materialCost)) { showToast("Не хватает денег на материалы."); return; }
     employee.assignedLabor = plan.laborAfter;
     if (!changeCapital(-materialCost, "материалы по заявке")) return;
     const materialStockUsed = consumeMaterials(materialUnits);
-    if (materialCost) state.seasonFinancials.problemRepairs += materialCost;
+    if (materialCost) state.seasonFinancials.materials += materialCost;
     if (!changeCapital(card.payout, "доход по платной заявке")) return;
     state.seasonFinancials.paidIncome += card.payout || 0;
     employee.unpaidOvertime = true;
@@ -2950,7 +3091,6 @@
       return;
     }
     if (state.phase === "legal") {
-      if (hasLawyer() && !lawyersDone()) return;
       state.phase = "payroll";
       saveState(); render(); showToast("Задачи специалистам завершены. Теперь выплати зарплаты.");
       return;
@@ -3034,6 +3174,19 @@
     checkBankruptcy(); saveState(); render(); showToast(`Удержанные зарплаты выплачены: −${money(amount)} ₽.`);
   }
 
+  function payEmployeeWithheldWages(employeeId) {
+    const employee = state.employees.find(item => item.id === employeeId);
+    const amount = Number(employee?.withheldAmount) || 0;
+    if (!employee || amount <= 0) return;
+    if (state.capital < amount) { showToast(`Для выплаты удержанной зарплаты ${employee.name} нужно ${money(amount)} ₽.`); return; }
+    if (!changeCapital(-amount, `выплата удержанной зарплаты ${employee.name}`)) return;
+    employee.withheldAmount = 0;
+    state.withheldWages = Math.max(0, Math.round((state.withheldWages - amount) * 100) / 100);
+    state.seasonFinancials.salaries += amount;
+    addLog(`Выплачена удержанная зарплата ${employee.name}: −${money(amount)} ₽.`);
+    checkBankruptcy(); saveState(); render(); showToast(`Удержанная зарплата ${employee.name} выплачена: −${money(amount)} ₽.`);
+  }
+
   function collectSeason() {
     if (state.phase !== "collection") return;
     const seasonLog = [];
@@ -3106,9 +3259,9 @@
       noOverdueMarketers.forEach(employee => seasonLog.push(`Маркетолог ${employee.name}: просроченных заявок нет, репутация +1 за ход.`));
     }
     refreshPortfolioTotals();
-    state.lastSeasonFinancials = { collection: income, paidIncome: state.seasonFinancials.paidIncome, upkeep: state.seasonFinancials.upkeep, salaries: state.seasonFinancials.salaries, fines: seasonFinePayments(), compensation: seasonCompensationPayments(), problemRepairs: state.seasonFinancials.problemRepairs };
+    state.lastSeasonFinancials = { collection: income, paidIncome: state.seasonFinancials.paidIncome, upkeep: state.seasonFinancials.upkeep, salaries: state.seasonFinancials.salaries, fines: seasonFinePayments(), compensation: seasonCompensationPayments(), problemRepairs: state.seasonFinancials.problemRepairs, contractors: state.seasonFinancials.contractors, materials: state.seasonFinancials.materials, averageTariff: averageManagedTariff() };
     state.financialHistory.push({ year: state.year, seasonIndex: state.seasonIndex, seasonTurnIndex: state.seasonTurnIndex, ...state.lastSeasonFinancials, capital: state.capital, collectionRate, reputation: state.reputation });
-    state.seasonFinancials = { upkeep: 0, salaries: 0, paidIncome: 0, problemRepairs: 0 };
+    state.seasonFinancials = { upkeep: 0, salaries: 0, paidIncome: 0, problemRepairs: 0, contractors: 0, materials: 0 };
     seasonLog.push(`Собрано платежей: +${money(income)} ₽.`);
     if (state.phase === "bankruptcy") {
       addLogSequence(seasonLog);
@@ -3122,8 +3275,10 @@
     if (seasonWillEnd) runReputationHouseVotes(seasonLog);
     addLogSequence(seasonLog);
     if (state.phase === "gameOver") { saveState(); render(); return; }
-    if (seasonWillEnd && state.houseRemoved && CONFIG.rules.unsafeHouseEndsGame && state.seasonIndex !== CONFIG.rules.annualReportSeasonIndex) {
+    if (seasonWillEnd && state.houses === 0 && availableRealEstateHomes().length === 0 && CONFIG.rules.unsafeHouseEndsGame && state.seasonIndex !== CONFIG.rules.annualReportSeasonIndex) {
       cancelUnresolvedForAnnualReport();
+      const maintenanceGrowth = applyAnnualMaintenanceGrowth();
+      const comparisonStart = previousAnnualReportReputation();
       const annualReputation = applyAnnualReputation();
       const { cancellationPenalty, marketerBonus, unsafeHousePenalty, solvencyBonus, cleanHouseBonus } = annualReputation.changes;
       if (annualReputation.delta) addLog(`Годовой расчёт репутации: ${annualReputation.delta > 0 ? "+" : ""}${annualReputation.delta} (${cancellationPenalty} штраф за отмены, +${marketerBonus} от маркетологов, ${unsafeHousePenalty ? `−${unsafeHousePenalty} за аварийный дом${state.unsafeHousePenaltyYear === state.year ? " (уже учтено при признании)" : ""}` : "без штрафа за аварийный дом"}, +${solvencyBonus} за отсутствие долгов, +${cleanHouseBonus} за отсутствие отмен).`);
@@ -3133,15 +3288,18 @@
         capitalEnd: state.capital,
         yearStats: { ...state.yearStats },
         totals: { ...state.totals },
-        reputation: { start: annualReputation.start, end: state.reputation, ...annualReputation.changes }
+        maintenanceGrowth,
+        reputation: { start: annualReputation.start, comparisonStart, end: state.reputation, ...annualReputation.changes }
       };
       state.phase = "annualReport";
     } else if (seasonWillEnd && state.seasonIndex === CONFIG.rules.annualReportSeasonIndex) {
       cancelUnresolvedForAnnualReport();
+      const maintenanceGrowth = applyAnnualMaintenanceGrowth();
+      const comparisonStart = previousAnnualReportReputation();
       const annualReputation = applyAnnualReputation();
       const { cancellationPenalty, marketerBonus, unsafeHousePenalty, solvencyBonus, cleanHouseBonus } = annualReputation.changes;
       addLog(`Годовой расчёт репутации: ${annualReputation.delta >= 0 ? "+" : ""}${annualReputation.delta} (${cancellationPenalty} штраф за отмены, +${marketerBonus} от маркетологов, ${unsafeHousePenalty ? `−${unsafeHousePenalty} за аварийный дом${state.unsafeHousePenaltyYear === state.year ? " (уже учтено при признании)" : ""}` : "без штрафа за аварийный дом"}, +${solvencyBonus} за отсутствие долгов, +${cleanHouseBonus} за отсутствие отмен).`);
-      state.lastAnnualReport = { year: state.year, capitalStart: state.yearStats.capitalStart, capitalEnd: state.capital, yearStats: { ...state.yearStats }, totals: { ...state.totals }, reputation: { start: annualReputation.start, end: state.reputation, ...annualReputation.changes } };
+      state.lastAnnualReport = { year: state.year, capitalStart: state.yearStats.capitalStart, capitalEnd: state.capital, yearStats: { ...state.yearStats }, totals: { ...state.totals }, maintenanceGrowth, reputation: { start: annualReputation.start, comparisonStart, end: state.reputation, ...annualReputation.changes } };
       state.phase = "annualReport";
     } else {
       if (unresolvedCount) addLog(`На следующий сезон перенесено нерешённых заявок: ${unresolvedCount}.`);
@@ -3157,7 +3315,7 @@
   }
 
   function startNewYear() {
-    if (state.phase !== "annualReport" || (state.houseRemoved && CONFIG.rules.unsafeHouseEndsGame)) return;
+    if (state.phase !== "annualReport" || (state.houses === 0 && availableRealEstateHomes().length === 0 && CONFIG.rules.unsafeHouseEndsGame)) return;
     const tariffOssSkippedHomes = managedHomes().filter(home => home.tariffOssResolvedYear !== state.year);
     if (managedHomes().length && tariffOssSkippedHomes.length === 0) {
       const bonus = CONFIG.oss?.tariffOssSkippedReputationBonus ?? 1;

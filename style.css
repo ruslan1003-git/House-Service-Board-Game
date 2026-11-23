@@ -12,7 +12,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 350px; background: var(--paper); color: var(--ink); font-family: "DM Sans", sans-serif; -webkit-font-smoothing: antialiased; }
 button { font: inherit; }
-.game-shell { width: min(1120px, calc(100% - 72px)); margin: 0 auto; }
+.game-shell { width: min(1800px, calc(100% - 48px)); margin: 0 auto; }
 .topbar { min-height: 72px; height: auto; display: flex; align-items: stretch; justify-content: space-between; border-bottom: 1px solid #e4e2db; }
 .brand,.topbar-center,.topbar>.icon-button,.topbar>.settings-link { align-self: center; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: "Manrope", sans-serif; font-weight: 800; font-size: 19px; letter-spacing: -1px; }
@@ -117,8 +117,34 @@ h1 span { color: #7f9562; }
 .house-property-card { min-width:0; padding:13px; border:1px solid #e4e7d9; border-radius:8px; background:#fbfcf7; }
 .house-property-card.additional-house-card { border-color:#d8e4d0; background:#f9fcf7; }
 .request-house-address { color:#48624c; font-weight:800; }
+.request-meta { display:grid; gap:4px; align-items:start; }
+.request-meta-line { display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; }
+.request-meta .labor-badge { padding:0; border:0; border-radius:0; background:transparent; color:#344b36; font-size:10px; font-weight:900; }
+.worker-productivity-count { color:#354b36; font-weight:400; }
 .request-cost { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; color: #303d32; }.request-cost>b { font: 700 12px "Manrope",sans-serif; }.request-cost>span:not(.done-check) { color: #a09f94; font-size: 8px; }
 .request-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; width: 100%; margin-top: 5px; }.staff-solve-button,.overtime-unpaid-button { max-width: 100%; padding: 5px 6px; border: 1px solid #dce7d9; border-radius: 4px; background: #edf4ed; color: #4d7256; font-size: 7px; font-weight: 700; line-height: 1.3; white-space: normal; text-align: right; cursor: pointer; }.staff-solve-button:hover { background: #dcebdd; }.staff-solve-button:disabled { border-color: #eeece6; background: #f7f6f2; color: #aaa99f; cursor: default; }.overtime-unpaid-button { border-color: #f0e0d6; background: #faf2ed; color: #a76b4c; }.overtime-unpaid-button:hover { background: #f5e6dc; }.overtime-unpaid-button:disabled { opacity: .55; cursor: default; }.used-note { max-width: 130px; color: #a09b8d; font-size: 7px; text-align: right; }.material-note { color: #b18850 !important; font-size: 7px !important; }.request-cancel-button { max-width: 100%; padding: 4px 6px; border: 1px solid #eee1da; border-radius: 4px; background: #fffaf7; color: #a56e5c; font-size: 7px; cursor: pointer; }.request-cancel-button:hover { background: #f8eae3; }.request-cancel-button:disabled { opacity: .55; cursor: default; }
+.request-card { grid-template-columns: 34px minmax(0,1fr) 230px; }
+.request-card.paid-request-card { grid-template-columns: 34px minmax(0,1fr) 230px; }
+.request-card.paid-request-card .request-info { padding-right:70px; }
+.request-cost,.request-actions { min-width:0; align-items:stretch; }
+.request-action-row:not(.contractor-action-row) { display:grid; grid-template-columns:minmax(0,1fr); gap:3px; }
+.request-action-row.paid-action-row { grid-template-columns:64px 230px; align-items:stretch; gap:6px; width:calc(100% + 70px); margin-left:-70px; }
+.request-action-row.paid-action-row .action-income { align-self:center; text-align:right; }
+.request-actions .staff-solve-button,.request-actions .overtime-unpaid-button,.request-actions .solve-button { box-sizing:border-box; width:100%; max-width:none; min-width:0; justify-content:flex-start; text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.request-action-row:not(.contractor-action-row) .action-income { text-align:left; }
+.request-action-row.paid-action-row:not(.contractor-action-row) .action-income { text-align:right; }
+.contractor-action-row { display:flex; flex-direction:column; align-items:stretch; gap:5px; }
+.contractor-action-row.single-contractor { grid-template-columns:minmax(0,1fr); }
+.contractor-action-row .action-income { grid-column:1/-1; text-align:left; }
+.contractor-method { display:block; width:100%; min-width:0; }
+.contractor-method .solve-button { width:100%; min-width:0; overflow-wrap:anywhere; }
+.contractor-action-row.paid-contractor-action-row { width:calc(100% + 70px); margin-left:-70px; }
+.paid-contractor-method { display:grid; grid-template-columns:64px 230px; align-items:stretch; gap:6px; }
+.paid-contractor-method .action-income { grid-column:1; align-self:center; font-size:8px; text-align:right; }
+.paid-contractor-method .solve-button { grid-column:2; width:230px; }
+.request-actions .request-cancel-button { box-sizing:border-box; width:100%; max-width:none; text-align:left; }
+.request-actions .staff-solve-button,.request-actions .overtime-unpaid-button,.request-actions .solve-button { min-height:36px; padding-top:9px; padding-bottom:9px; line-height:1.35; }
+.request-actions .request-cancel-button { min-height:27px; padding-top:6px; padding-bottom:6px; }
 .solve-button { display: flex; align-items: center; gap: 7px; margin-top: 5px; padding: 5px 8px; border: 0; border-radius: 4px; background: #edf2df; color: #526a39; font-size: 8px; font-weight: 700; cursor: pointer; transition: background .18s; }.solve-button:hover { background: #dfe9c6; }.solve-button:disabled { background: #f1efeb; color: #aaa79d; cursor: not-allowed; }
 .done-check { display: grid; place-items: center; width: 19px; height: 19px; margin-top: 5px; border-radius: 50%; background: #edf3df; color: #6d8b41; font-size: 12px; }.request-card.resolved { background: #fcfdf8; border-color: #e8eddd; }
 .panel-footer { display: flex; justify-content: space-between; align-items: center; min-height: 34px; margin-top: 9px; border-top: 1px solid #f0eee8; color: #98988e; font-size: 8px; }.footer-dots { display: flex; gap: 3px; }.footer-dots i { width: 3px; height: 3px; border-radius: 50%; background: #d5d4cb; }
@@ -497,6 +523,8 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
   .requests-panel .panel-heading h2 { font-size: 15px; }
   .request-count { white-space: nowrap; }
   .request-card { grid-template-columns: 30px minmax(0,1fr); gap: 7px; padding: 10px 8px; }
+  .request-card.paid-request-card { grid-template-columns: 30px minmax(0,1fr); }
+  .request-card.paid-request-card .request-info { padding-right:0; }
   .request-icon { grid-column: 1; grid-row: 1; width: 28px; height: 28px; font-size: 14px; }
   .request-info { grid-column: 2; min-width: 0; }
   .request-meta { display: flex; flex-wrap: wrap; gap: 5px; font-size: 8px; letter-spacing: .25px; }
@@ -504,12 +532,16 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
   .request-info p { font-size: 11px; line-height: 1.45; }
   .request-material-line { font-size: 10px; }
   .request-action-row { justify-content: stretch; }
+  .request-action-row.paid-action-row { grid-template-columns:64px minmax(0,1fr); width:100%; margin-left:0; }
+  .contractor-action-row.paid-contractor-action-row { width:100%; margin-left:0; }
+  .paid-contractor-method { grid-template-columns:64px minmax(0,1fr); }
+  .paid-contractor-method .solve-button { width:100%; }
   .action-income { min-width: 64px; font-size: 11px; text-align: right; }
   .request-cost { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0,1fr); justify-items: stretch; align-items: stretch; gap: 4px; min-width: 0; padding-top: 7px; border-top: 1px solid #f0eee8; }
   .request-cost > b { font-size: 12px; }
   .request-cost > span:not(.done-check) { font-size: 10px; text-align: left; }
   .request-actions { align-items: stretch; gap: 6px; margin-top: 3px; }
-  .staff-solve-button,.overtime-unpaid-button,.solve-button,.request-cancel-button { width: 100%; max-width: none; min-height: 40px; padding: 8px 10px; font-size: 11px; line-height: 1.35; text-align: left; }
+  .staff-solve-button,.overtime-unpaid-button,.solve-button,.request-cancel-button { width: 100%; max-width: none; min-height: 60px; padding: 12px 10px; font-size: 11px; line-height: 1.35; text-align: left; }
   .emergency-lock-note { max-width: none; font-size: 10px; text-align: center; }
   .panel-footer { align-items: flex-start; gap: 8px; font-size: 9px; line-height: 1.35; }
   .actions-panel { display: block; padding: 13px; }
@@ -581,7 +613,7 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .financial-chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .financial-chart-heading h2 { margin: 0; color: #354638; font: 700 17px "Manrope",sans-serif; }
 .financial-season-badge { padding: 6px 9px; border: 1px solid #e5e8dc; border-radius: 14px; color: #72786b; font-size: 9px; white-space: nowrap; }
-.financial-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; margin-bottom: 16px; }
+.financial-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr)); gap: 9px; margin-bottom: 16px; }
 .financial-summary article { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #eeede6; border-radius: 6px; background: #fafaf6; }
 .financial-summary article span { color: #85877c; font-size: 9px; }
 .financial-summary article b { font: 700 15px "Manrope",sans-serif; }
@@ -636,8 +668,9 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .problem-work-row>div:first-child { display:grid; gap:3px; }
 .problem-work-row strong { color:#4a5845; font-size:10px; }
 .problem-work-row span,.problem-work-empty { color:#86897e; font-size:9px; }
+.problem-work-row>div:first-child span { color:#3e5140; font-size:12px; font-weight:800; }
 .problem-work-actions,.problem-material-actions,.problem-repair-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.problem-work-button,.problem-material-button { padding:7px 9px; border:1px solid #dce5d2; border-radius:5px; background:#eff3e7; color:#596d3e; font-size:9px; font-weight:700; cursor:pointer; }
+.problem-work-button,.problem-material-button { padding:7px 9px; border:1px solid #dce5d2; border-radius:5px; background:#eff3e7; color:#596d3e; font-size:10px; font-weight:700; cursor:pointer; }
 .problem-material-button { background:#f8f1e2; border-color:#eadfc5; color:#826b3d; }
 .problem-work-button:disabled,.problem-material-button:disabled { opacity:.5; cursor:default; }
 .problem-material-paid { color:#66784a; font-size:9px; font-weight:700; }
@@ -793,6 +826,8 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .withheld-wages-panel { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; padding:9px; border:1px solid #ead9c8; border-radius:6px; background:#fff9f1; color:#72563d; font-size:10px; }
 .withheld-wages-panel button { padding:6px 9px; border:1px solid #e4d1bd; border-radius:5px; background:#f8eee3; color:#79563b; font-size:9px; font-weight:700; cursor:pointer; }
 .withheld-wages-panel button:disabled,.withdraw-panel button:disabled { opacity:.5; cursor:not-allowed; }
+.pay-employee-withheld { align-self:flex-start; max-width:100%; min-height:32px; padding:5px 8px; border:1px solid #d8e3c7; border-radius:5px; background:#f2f6e9; color:#59733c; font-size:9px; font-weight:700; cursor:pointer; }
+.pay-employee-withheld:disabled { opacity:.5; cursor:not-allowed; }
 .legal-case-actions { display:flex; flex-wrap:wrap; gap:5px; }
 .legal-actions-inline { display:flex !important; flex:0 0 auto; flex-wrap:nowrap; gap:5px; }
 .legal-actions-inline .legal-action-button { flex:1 1 auto; white-space:nowrap; }
@@ -804,7 +839,7 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .staff-disclosure>summary::-webkit-details-marker { display:none; }
 .staff-disclosure>summary::after { content:'⌄'; order:2; color:#81906d; font-size:14px; }
 .staff-disclosure[open]>summary::after { content:'⌃'; }
-.staff-disclosure>summary small { margin-left:auto; color:#929185; font-size:8px; font-weight:500; letter-spacing:0; }
+.staff-disclosure>summary small { margin-left:auto; color:#929185; font-size:12px; font-weight:600; letter-spacing:0; }
 .market-disclosure .market-grid { padding-bottom:8px; }
 .team-disclosure .team-list { padding-bottom:8px; }
 .founder-actions { display:flex; flex-wrap:wrap; gap:5px; }
@@ -883,3 +918,11 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 @media (max-width:600px) { .game-over-action-message { padding:10px; font-size:11px; } }
 
 .penalties-compact.agenda-disclosure { margin-top:12px; padding:10px 0 0; border:0; border-top:1px solid #eeece5; border-radius:0; background:transparent; box-shadow:none; }
+.report-maintenance-growth { display:grid; gap:5px; margin-top:10px; padding:10px 12px; border:1px solid #e9ecdf; border-radius:6px; background:#fffefa; }
+.report-maintenance-growth h3 { margin:0 0 2px; color:#41533e; font:700 11px "Manrope",sans-serif; }
+.report-maintenance-growth>div { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 7px; border-radius:4px; background:#f7f8f2; font-size:9px; }
+.report-maintenance-growth>div { flex-wrap:wrap; overflow-wrap:anywhere; }
+.report-maintenance-growth>div span { color:#73796c; }
+.report-maintenance-growth>div b { color:#354638; white-space:nowrap; }
+.report-maintenance-growth>div i { color:#71834f; font-size:9px; font-style:normal; }
+.report-maintenance-growth p { margin:0; color:#898b80; font-size:9px; }

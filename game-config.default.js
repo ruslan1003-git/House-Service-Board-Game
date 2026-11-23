@@ -758,6 +758,8 @@ window.DOMOUPRAV_CONFIG = {
     "badGameWithdrawalFeePercent": 40,
     "badGameTaxAuditChance": 0.01,
     "badGameForgeryLawsuitChance": 0.2,
+    "badGameForgeryFilingReputationPenalty": 2,
+    "badGameForgeryOngoingReputationPenalty": 1,
     "badGameCourtWinChance": 0.05,
     "badGameDelayBaseChance": 0.9,
     "badGameReputationPrice": 20,

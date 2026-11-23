@@ -304,8 +304,13 @@
       const role = ROLES[employee.role] || ROLES.handyman;
       const rosterProfile = EMPLOYEE_ROSTER.find(person => person.role === employee.role && person.name === employee.name);
       const legalStrength = employee.role === "lawyer" ? Math.max(1, Math.min(3, Number.isInteger(employee.legalStrength) ? employee.legalStrength : 1)) : employee.legalStrength;
-      return { ...rosterProfile, ...employee, legalStrength, salary: migrateEmployeeSalaries && rosterProfile && Number.isFinite(employee.salary) && role.salary ? employee.salary / role.salary * (employee.role === "lawyer" ? lawyerSalary(legalStrength) : rosterProfile.salary) : Number.isFinite(employee.salary) ? employee.salary : employee.role === "lawyer" ? lawyerSalary(legalStrength) : role.salary, bonus: employee.bonus || rosterProfile?.bonus, bonusDescription: rosterProfile?.bonusDescription || employee.bonusDescription, productivity: Number.isFinite(employee.productivity) ? employee.productivity : role.productivity, probationTurns: Number.isInteger(employee.probationTurns) ? employee.probationTurns : 0, assignedLabor: Number.isFinite(employee.assignedLabor) ? employee.assignedLabor : (employee.usedThisTurn ? 1 : 0), mood: ["satisfied", "normal", "dissatisfied", "veryDissatisfied"].includes(employee.mood) ? employee.mood : employee.unhappy || employee.unhappyNextTurn ? "dissatisfied" : "normal", fullSalaryStreak: Number.isInteger(employee.fullSalaryStreak) ? employee.fullSalaryStreak : 0, noWithholdPayStreak: Number.isInteger(employee.noWithholdPayStreak) ? employee.noWithholdPayStreak : 0, noPremiumPayStreak: Number.isInteger(employee.noPremiumPayStreak) ? employee.noPremiumPayStreak : 0, withholdPercent: Number.isFinite(employee.withholdPercent) ? Math.max(-50, Math.min(50, employee.withholdPercent)) : 0, withheldAmount: Number.isFinite(employee.withheldAmount) ? employee.withheldAmount : 0, unpaidOvertime: Boolean(employee.unpaidOvertime), deceased: Boolean(employee.deceased) };
+      const legacyLoyalty = { satisfied: 3, normal: 0, dissatisfied: -4, veryDissatisfied: -8 }[employee.mood] ?? (employee.unhappy || employee.unhappyNextTurn ? -4 : 0);
+      return { ...rosterProfile, ...employee, legalStrength, salary: migrateEmployeeSalaries && rosterProfile && Number.isFinite(employee.salary) && role.salary ? employee.salary / role.salary * (employee.role === "lawyer" ? lawyerSalary(legalStrength) : rosterProfile.salary) : Number.isFinite(employee.salary) ? employee.salary : employee.role === "lawyer" ? lawyerSalary(legalStrength) : role.salary, bonus: employee.bonus || rosterProfile?.bonus, bonusDescription: rosterProfile?.bonusDescription || employee.bonusDescription, productivity: Number.isFinite(employee.productivity) ? employee.productivity : role.productivity, age: Number.isInteger(employee.age) ? Math.max(20, Math.min(60, employee.age)) : 20 + Math.floor(Math.random() * 41), loyalty: Number.isInteger(employee.loyalty) ? Math.max(-10, Math.min(5, employee.loyalty)) : legacyLoyalty, loyaltyQuietStreak: Number.isInteger(employee.loyaltyQuietStreak) ? employee.loyaltyQuietStreak : 0, probationTurns: Number.isInteger(employee.probationTurns) ? employee.probationTurns : 0, assignedLabor: Number.isFinite(employee.assignedLabor) ? employee.assignedLabor : (employee.usedThisTurn ? 1 : 0), mood: employee.mood || "normal", fullSalaryStreak: Number.isInteger(employee.fullSalaryStreak) ? employee.fullSalaryStreak : 0, noWithholdPayStreak: Number.isInteger(employee.noWithholdPayStreak) ? employee.noWithholdPayStreak : 0, noPremiumPayStreak: Number.isInteger(employee.noPremiumPayStreak) ? employee.noPremiumPayStreak : 0, withholdPercent: Number.isFinite(employee.withholdPercent) ? Math.max(-50, Math.min(50, employee.withholdPercent)) : 0, withheldAmount: Number.isFinite(employee.withheldAmount) ? employee.withheldAmount : 0, unpaidOvertime: Boolean(employee.unpaidOvertime), deceased: Boolean(employee.deceased) };
     }) : [];
+    normalized.employees.forEach(employee => {
+      employee.withholdPercent = Number.isFinite(employee.withholdPercent) ? Math.max(-50, Math.min(50, employee.withholdPercent)) : 0;
+      employee.anchoredWithholdPercent = Number.isFinite(employee.anchoredWithholdPercent) ? Math.max(-50, Math.min(50, employee.anchoredWithholdPercent)) : employee.withholdPercent;
+    });
     const seenEmployeeProfiles = new Set();
     normalized.employees = normalized.employees.filter(employee => {
       const profileKey = `${employee.role}:${employee.name || employee.id}`;
@@ -569,29 +574,43 @@
   function markLawyerDone(employeeId) { if (!state.lawyerActionsUsed.includes(employeeId)) state.lawyerActionsUsed.push(employeeId); state.lawyerActionTaken = lawyersDone(); }
   const MOOD_ORDER = ["veryDissatisfied", "dissatisfied", "normal", "satisfied"];
   const MOOD_LABELS = { veryDissatisfied: "Очень недоволен", dissatisfied: "Недоволен", normal: "Норм", satisfied: "Доволен" };
-  function moodOf(employee) { return MOOD_ORDER.includes(employee.mood) ? employee.mood : "normal"; }
-  function changeMood(employee, steps) { const index = MOOD_ORDER.indexOf(moodOf(employee)); employee.mood = MOOD_ORDER[Math.max(0, Math.min(MOOD_ORDER.length - 1, index + steps))]; return employee.mood; }
+  function loyaltyOf(employee) { return Math.max(-10, Math.min(5, Number.isInteger(employee.loyalty) ? employee.loyalty : 0)); }
+  function moodOf(employee) { const loyalty = loyaltyOf(employee); return loyalty <= -7 ? "veryDissatisfied" : loyalty <= -3 ? "dissatisfied" : loyalty <= 1 ? "normal" : "satisfied"; }
+  function changeLoyalty(employee, amount) { employee.loyalty = Math.max(-10, Math.min(5, loyaltyOf(employee) + amount)); employee.mood = moodOf(employee); return employee.loyalty; }
+  function changeMood(employee, steps) { return changeLoyalty(employee, steps); }
   function projectedWithholdingMood(employee, percent = employee.withholdPercent || 0) {
-    let mood = moodOf(employee);
-    if (percent > 0) return MOOD_ORDER[Math.max(0, MOOD_ORDER.indexOf(mood) - 1)];
-    if (percent < 0) return "satisfied";
-    const noWithholdStreak = (employee.withheldAmount || 0) <= 0 ? (employee.noWithholdPayStreak || 0) + 1 : 0;
-    const noPremiumStreak = (employee.noPremiumPayStreak || 0) + 1;
-    if (mood === "veryDissatisfied" && noWithholdStreak >= 2) mood = "dissatisfied";
-    else if (mood === "dissatisfied" && noWithholdStreak >= 3) mood = "normal";
-    if (mood === "satisfied" && noPremiumStreak >= 4) mood = "normal";
-    return mood;
+    const loyalty = loyaltyOf(employee);
+    if (percent > 0) return `${loyalty} → ${Math.max(-10, loyalty - 1)} (${percent}% шанс)`;
+    if (percent < 0) return `${loyalty} → ${Math.min(5, loyalty + 1)} (${Math.abs(percent)}% шанс)`;
+    const needed = loyalty === 5 ? 4 : loyalty === 4 ? 3 : loyalty === 3 ? 2 : loyalty === 2 || loyalty === -3 || loyalty === -4 ? 2 : loyalty <= -5 ? 3 : 0;
+    return needed ? `${loyalty} → ${loyalty > 0 ? loyalty - 1 : loyalty + 1} через ${Math.max(0, needed - (employee.loyaltyQuietStreak || 0))} ход.` : `${loyalty} (стремится к норме)`;
   }
-  function setDissatisfied(employee, reason) { const changed = moodOf(employee) !== "dissatisfied"; employee.mood = "dissatisfied"; employee.fullSalaryStreak = 0; employee.noWithholdPayStreak = 0; employee.noPremiumPayStreak = 0; if (changed) addLog(`${employee.name} теперь «Недоволен»${reason ? `: ${reason}` : " после работы без премии"}.`); }
-  function moodTurnoverChance(employee) { return ({ satisfied: 0, normal: 0, dissatisfied: 0.02, veryDissatisfied: 0.04 })[moodOf(employee)]; }
-  function moodComplaintChance(employee) { return ({ satisfied: 0, normal: 0, dissatisfied: 0.1, veryDissatisfied: 0.3 })[moodOf(employee)]; }
+  function setDissatisfied(employee, reason) { employee.unpaidOvertime = true; employee.fullSalaryStreak = 0; employee.noWithholdPayStreak = 0; employee.noPremiumPayStreak = 0; addLog(`${employee.name}: переработка без доплаты зафиксирована; лояльность будет пересчитана после выплаты ЗП и БО${reason ? ` (${reason})` : ""}.`); }
+  function averageWithholdingPercent() { const team = state.employees.filter(employee => !employee.deceased); return team.length ? team.reduce((sum, employee) => sum + Math.max(0, Number(employee.withholdPercent) || 0), 0) / team.length : 0; }
+  function boundedProbability(percent) { return Math.max(0, Math.min(100, percent)) / 100; }
+  function lowReputationDepartureChance(employee) {
+    if (state.reputation >= 0) return 0;
+    const loyalty = loyaltyOf(employee), reputation = Math.abs(state.reputation);
+    const modifier = loyalty >= 2 ? -50 : loyalty >= -2 ? -10 : loyalty >= -6 ? 0 : 10;
+    return boundedProbability(reputation + modifier);
+  }
+  function outsideOfferChance(employee) { return boundedProbability(averageWithholdingPercent() + (loyaltyOf(employee) >= 2 ? 0 : 10)); }
+  function moodTurnoverChance(employee) { return boundedProbability(Math.max(0, -loyaltyOf(employee))); }
+  function moodComplaintChance(employee) { const loyalty = loyaltyOf(employee); return boundedProbability((loyalty <= -7 ? 20 : loyalty <= -3 ? 10 : 0) + averageWithholdingPercent()); }
+  function neutralLoyaltyRecovery(employee) {
+    const value = loyaltyOf(employee);
+    const needed = value === 5 ? 4 : value === 4 ? 3 : value === 3 ? 2 : value === 2 || value === -3 || value === -4 ? 2 : value <= -5 ? 3 : Infinity;
+    employee.loyaltyQuietStreak = (employee.loyaltyQuietStreak || 0) + 1;
+    if (employee.loyaltyQuietStreak >= needed) { changeLoyalty(employee, value > 0 ? -1 : 1); employee.loyaltyQuietStreak = 0; return true; }
+    return false;
+  }
   function respondToOutsideOffer(employeeId, keep) {
-    if (state.phase !== "staffing") return;
-    const employee = state.employees.find(item => item.id === employeeId && item.pendingDeparture?.reason === "outsideOffer" && item.pendingDeparture.needsResponse);
+    if (state.phase !== "staffing" && !DEV_MODE) return;
+    const employee = state.employees.find(item => item.id === employeeId && item.pendingDeparture?.needsResponse && (!keep || ["outsideOffer", "lowReputation"].includes(item.pendingDeparture.reason)));
     if (!employee) return;
     if (keep) {
       if (employee.retentionRaiseYear === state.year) { showToast(`${employee.name} уже получил встречное повышение зарплаты в этом году.`); return; }
-      const increase = CONFIG.rules.employeeRetentionSalaryIncreasePercent ?? 20;
+      const increase = hasHR() ? 10 : (CONFIG.rules.employeeRetentionSalaryIncreasePercent ?? 20);
       employee.salary *= 1 + increase / 100;
       employee.retentionRaiseYear = state.year;
       employee.pendingDeparture = null;
@@ -599,8 +618,68 @@
       showToast(`${employee.name} остаётся в компании с повышением зарплаты.`);
     } else {
       employee.pendingDeparture.needsResponse = false;
-      addLog(`${employee.name} отказался от встречного предложения и доработает последний ход; причина ухода: «Предложили зарплату выше в другом месте».`);
-      showToast(`${employee.name} уйдёт после завершения этого хода.`);
+      addLog(`${employee.name} отказался от встречного предложения и доработает положенный срок; причина ухода: «${employee.pendingDeparture.label}».`);
+      showToast(`${employee.name} уйдёт после завершения положенного срока.`);
+    }
+    saveState(); render();
+  }
+  function resolveHealthDeparture(employeeId, treat) {
+    const employee = state.employees.find(item => item.id === employeeId && item.pendingDeparture?.reason === "health" && item.pendingDeparture.needsResponse);
+    if (!employee) return;
+    if (treat) {
+      const cost = effectiveSalary(employee) * 3;
+      if (state.capital < cost || !changeCapital(-cost, "лечение сотрудника")) { showToast(`Для лечения нужно ${money(cost)} ₽.`); return; }
+      state.seasonFinancials.salaries += cost;
+      employee.loyalty = 5; employee.mood = "satisfied"; employee.loyaltyQuietStreak = 0; employee.pendingDeparture = null;
+      addLog(`Сотрудник ${employee.name} вылечен за ${money(cost)} ₽; лояльность установлена на +5.`);
+      showToast(`${employee.name} остаётся после лечения; лояльность +5.`);
+    } else {
+      employee.pendingDeparture.needsResponse = false;
+      showToast(`${employee.name} доработает положенный срок и уйдёт.`);
+    }
+    saveState(); render();
+  }
+  function resolveDissatisfactionDeparture(employeeId, premiumPercent, departureReason = "dissatisfaction") {
+    const employee = state.employees.find(item => item.id === employeeId && item.pendingDeparture?.reason === departureReason && item.pendingDeparture.needsResponse);
+    if (!employee) return;
+    const premium = departureReason === "outsideOffer" ? Math.max(0, Math.min(50, -(Number(employee.withholdPercent) || 0))) : Math.max(0, Math.min(50, Number(premiumPercent) || 0));
+    const withheld = Number(employee.withheldAmount) || 0;
+    const bonus = effectiveSalary(employee) * premium / 100;
+    const cost = withheld + bonus;
+    if (state.capital < cost) { showToast(`Нужно ${money(cost)} ₽, чтобы выплатить удержания и премию.`); return; }
+    if (departureReason === "outsideOffer") {
+      if (cost > 0 && !changeCapital(-cost, "удержания и премия при предложении конкурента")) return;
+      employee.withheldAmount = 0;
+      state.withheldWages = Math.max(0, state.withheldWages - withheld);
+      employee.withholdPercent = 0;
+      state.seasonFinancials.salaries += cost;
+      const stayed = Math.random() < 0.5;
+      if (stayed) {
+        employee.loyalty = -2;
+        employee.mood = moodOf(employee);
+        employee.loyaltyQuietStreak = 0;
+        employee.pendingDeparture = null;
+        addLog(`${employee.name} получил удержания ${money(withheld)} ₽ и премию ${money(bonus)} ₽. После выплаты согласился остаться с вероятностью 50%; лояльность установлена на −2 (Норм).`);
+        showToast(`${employee.name} получил ${money(cost)} ₽ и решил остаться. Лояльность −2.`);
+      } else {
+        employee.pendingDeparture.needsResponse = false;
+        addLog(`${employee.name} получил удержания ${money(withheld)} ₽ и премию ${money(bonus)} ₽, но с вероятностью 50% решил уйти после последнего рабочего срока. Лояльность не изменилась.`);
+        showToast(`${employee.name} получил ${money(cost)} ₽, но решил уйти.`);
+      }
+      saveState(); render();
+      return;
+    }
+    const stayChance = (50 + premium) / 100;
+    if (Math.random() < stayChance) {
+      if (cost > 0 && !changeCapital(-cost, "удержанные зарплаты и премия для сохранения сотрудника")) return;
+      employee.withheldAmount = 0; state.withheldWages = Math.max(0, state.withheldWages - withheld); employee.loyalty = departureReason === "outsideOffer" ? -2 : 5; employee.mood = moodOf(employee); employee.loyaltyQuietStreak = 0; employee.pendingDeparture = null;
+      state.seasonFinancials.salaries += cost;
+      addLog(`${employee.name} согласился остаться после выплаты удержаний ${money(withheld)} ₽ и премии ${money(bonus)} ₽; шанс остаться ${Math.round(stayChance * 100)}%, лояльность установлена на ${employee.loyalty} (${MOOD_LABELS[moodOf(employee)]}).`);
+      showToast(`${employee.name} остался в штате.`);
+    } else {
+      employee.pendingDeparture.needsResponse = false;
+      addLog(`${employee.name} не принял предложение остаться (шанс согласия ${Math.round(stayChance * 100)}%).`);
+      showToast(`${employee.name} всё равно уйдёт после положенного срока.`);
     }
     saveState(); render();
   }
@@ -613,6 +692,7 @@
     elements.houseDebt.innerHTML = `<div class="debt-total">${money(total)} ₽ <small>общий долг</small></div><div class="debt-bar" role="img" aria-label="Можно отсудить ${money(red)} рублей, доступно юристам сейчас ${money(yellow)} рублей, невозвратный долг ${money(black)} рублей"><i class="debt-segment debt-red" style="width:${total ? red / total * 100 : 0}%"></i><i class="debt-segment debt-yellow" style="width:${total ? yellow / total * 100 : 0}%"></i><i class="debt-segment debt-black" style="width:${total ? black / total * 100 : 0}%"></i></div><div class="debt-legend"><span>Можно отсудить ${money(red)} ₽</span><span>Юристы могут взыскать сейчас ${money(yellow)} ₽</span><span>Не возместить ${money(black)} ₽</span></div>`;
   }
   function effectiveSalary(employee) { return employee.salary * (employee.probationTurns > 0 ? CONFIG.rules.probationSalaryMultiplier : 1); }
+  function outsideOfferRetentionPayment(employee, adjustment = employee?.withholdPercent || 0) { return (Number(employee?.withheldAmount) || 0) + effectiveSalary(employee) * Math.max(0, -Number(adjustment || 0)) / 100; }
   function payableSalary(employee) { return effectiveSalary(employee) * (1 - (employee.withholdPercent || 0) / 100); }
   function upcomingPayroll() {
     const firingIds = new Set(Object.keys(state.pendingFireActions || {}));
@@ -734,8 +814,8 @@
     return true;
   }
 
-  function effectiveProductivity(employee) { return employee.deceased ? 0 : Math.max(1, employee.productivity + (moodOf(employee) === "satisfied" ? 1 : 0)); }
-  function effectiveBaseProductivity(employee) { return Math.max(1, employee.productivity); }
+  function effectiveProductivity(employee) { const mood = moodOf(employee); return employee.deceased ? 0 : Math.max(1, employee.productivity + (mood === "satisfied" ? 1 : mood === "dissatisfied" || mood === "veryDissatisfied" ? -1 : 0)); }
+  function effectiveBaseProductivity(employee) { return effectiveProductivity(employee); }
   function overtimeFor(employee, additionalLabor) {
     const productivity = effectiveBaseProductivity(employee);
     const oldOvertime = Math.max(0, employee.assignedLabor - productivity);
@@ -1419,12 +1499,10 @@
         state.seasonFinancials.salaries += premium;
         if (premium) addLog(`Премия за переработку ${roleName(employee.role)} ${employee.name}: ${money(plan.basePremium)} ₽${plan.hrMultiplier < 1 ? ` · HR снизил до ${money(premium)} ₽` : ""}.`);
       } else {
-        employee.unpaidOvertime = true;
         setDissatisfied(employee);
       }
     }
     if (!contribution) { showToast("У сотрудника нет свободной продуктивности нужной категории."); return; }
-    if (overtimeMode !== "paid") setDissatisfied(employee);
     employee.assignedLabor += contribution;
     problem.repairProgress = { ...progress, [category]: (progress[category] || 0) + contribution };
     const requirements = problemRequirements(problem).work;
@@ -1467,6 +1545,8 @@
     const panel = document.getElementById("dev-tools-panel");
     if (!panel) return;
     panel.hidden = false;
+    ensureDevEmployeeTools(panel);
+    renderDevEmployeeControls(panel);
     if (!panel.dataset.controlsBound) {
       panel.dataset.controlsBound = "true";
       panel.querySelectorAll("[data-dev-action]").forEach(button => button.addEventListener("click", () => runDevAction(button.dataset.devAction)));
@@ -1542,6 +1622,55 @@
     updateDevRequestFields();
   }
 
+  function ensureDevEmployeeTools(panel) {
+    const form = panel.querySelector("#dev-add-employee-form");
+    if (form && !form.querySelector("#dev-employee-age")) {
+      const profileLabel = form.elements.profile.closest("label");
+      if (profileLabel?.firstChild?.nodeType === Node.TEXT_NODE) profileLabel.firstChild.textContent = "Профиль и способность";
+      form.querySelector('[type="submit"]')?.insertAdjacentHTML("beforebegin", `<div class="dev-form-row"><label>Возраст<input id="dev-employee-age" type="number" min="20" max="60" value="35"></label><label>Лет в компании<input id="dev-employee-years" type="number" min="0" max="60" value="0"></label></div><div class="dev-form-row"><label>Зарплата, ₽/ход<input id="dev-employee-salary" type="number" min="0" step="0.01" value="15"></label><label>Лояльность<input id="dev-employee-loyalty" type="number" min="-10" max="5" step="1" value="0"></label></div>`);
+    }
+    if (!panel.querySelector("#dev-staff-control-list")) {
+      const timeline = panel.querySelector("#dev-timeline-form")?.closest(".dev-control-group");
+      const markup = `<section class="dev-control-group"><h3>Команда: события и лояльность</h3><p class="dev-panel-copy">Измени лояльность или принудительно вызови кадровое событие для сотрудника.</p><div id="dev-staff-control-list"></div></section>`;
+      if (timeline) timeline.insertAdjacentHTML("beforebegin", markup);
+      else panel.insertAdjacentHTML("beforeend", markup);
+    }
+    const list = panel.querySelector("#dev-staff-control-list");
+    if (list && !list.dataset.bound) {
+      list.dataset.bound = "true";
+      list.addEventListener("click", event => {
+        const button = event.target.closest("[data-dev-staff-action]");
+        if (!button) return;
+        const employee = state.employees.find(item => item.id === button.dataset.employeeId);
+        if (!employee) return;
+        const action = button.dataset.devStaffAction;
+        if (action === "loyalty-up") employee.loyalty = Math.min(5, loyaltyOf(employee) + 1);
+        else if (action === "loyalty-down") employee.loyalty = Math.max(-10, loyaltyOf(employee) - 1);
+        else if (action === "health") employee.pendingDeparture = { reason: "health", label: "Проблемы со здоровьем", chance: 1, turn: state.turn, needsResponse: true };
+        else if (action === "death") { employee.deceased = true; employee.pendingDeparture = { reason: "death", label: "Смерть сотрудника", chance: 1, turn: state.turn, settlementDueTurn: state.turn + 1 }; }
+        else if (action === "competitor") employee.pendingDeparture = { reason: "outsideOffer", label: "Получил предложение от конкурента", chance: 1, turn: state.turn, needsResponse: true };
+        else if (action === "resign") employee.pendingDeparture = { reason: "dissatisfaction", label: "Увольнение по собственному желанию", chance: 1, turn: state.turn, needsResponse: true };
+        else if (action === "fire") {
+          state.withheldWages = Math.max(0, state.withheldWages - (Number(employee.withheldAmount) || 0));
+          state.pendingHireIds = state.pendingHireIds.filter(id => id !== employee.id);
+          state.employees = state.employees.filter(item => item.id !== employee.id);
+          countEvent("fired");
+          addLog(`DEV: сотрудник ${employee.name} уволен без финансовых последствий.`);
+          showToast(`${employee.name} уволен инструментом разработчика.`);
+        }
+        if (action === "loyalty-up" || action === "loyalty-down") { employee.mood = moodOf(employee); addLog(`DEV: лояльность ${employee.name} изменена на ${loyaltyOf(employee)} (${MOOD_LABELS[moodOf(employee)]}).`); }
+        if (["health", "death", "competitor", "resign"].includes(action)) addLog(`DEV: вызвано кадровое событие «${employee.pendingDeparture.label}» для ${employee.name}.`);
+        saveState(); render();
+      });
+    }
+  }
+
+  function renderDevEmployeeControls(panel) {
+    const list = panel.querySelector("#dev-staff-control-list");
+    if (!list) return;
+    list.innerHTML = state.employees.map(employee => `<article class="dev-control-group"><strong>${escapeHtml(roleName(employee.role))} · ${escapeHtml(employee.name)}</strong><span>${employee.deceased ? "Умер" : `${quantity(employee.age || 0)} лет · лояльность ${loyaltyOf(employee)} · ${MOOD_LABELS[moodOf(employee)]}`}</span><div class="dev-tool-actions"><button type="button" class="dev-control-button" data-dev-staff-action="loyalty-down" data-employee-id="${escapeHtml(employee.id)}" title="Лояльность −1">−1</button><button type="button" class="dev-control-button" data-dev-staff-action="loyalty-up" data-employee-id="${escapeHtml(employee.id)}" title="Лояльность +1">+1</button><button type="button" class="dev-control-button" data-dev-staff-action="health" data-employee-id="${escapeHtml(employee.id)}">Проблемы со здоровьем</button><button type="button" class="dev-control-button" data-dev-staff-action="death" data-employee-id="${escapeHtml(employee.id)}">Смерть</button><button type="button" class="dev-control-button" data-dev-staff-action="competitor" data-employee-id="${escapeHtml(employee.id)}">Позвать к конкурентам</button><button type="button" class="dev-control-button" data-dev-staff-action="resign" data-employee-id="${escapeHtml(employee.id)}">Вызвать увольнение по собственному</button><button type="button" class="dev-control-button dev-wide-danger" data-dev-staff-action="fire" data-employee-id="${escapeHtml(employee.id)}">Уволить</button></div></article>`).join("") || '<p class="dev-panel-copy">В штате пока нет сотрудников.</p>';
+  }
+
   function bindDevToolForms(panel) {
     const addHouseForm = panel.querySelector("#dev-add-house-form");
     if (addHouseForm && !addHouseForm.dataset.bound) {
@@ -1596,6 +1725,7 @@
       employeeForm.dataset.bound = "true";
       employeeForm.elements.role.addEventListener("change", () => updateDevEmployeeProfiles(employeeForm));
       employeeForm.elements.profile.addEventListener("change", () => updateDevEmployeeParameters(employeeForm));
+      employeeForm.elements.legalStrength.addEventListener("change", () => updateDevEmployeeParameters(employeeForm));
       updateDevEmployeeProfiles(employeeForm);
       employeeForm.addEventListener("submit", event => {
         event.preventDefault();
@@ -1606,8 +1736,12 @@
         if (state.employees.some(person => person.role === roleId && person.name === profile.name) || state.pendingHireIds.some(id => { const candidate = state.market.find(person => person.id === id); return candidate?.role === roleId && candidate.name === profile.name; })) { showToast("Этот сотрудник уже выбран или работает в компании."); return; }
         const legalStrength = roleId === "lawyer" ? Number(employeeForm.elements.legalStrength.value) : profile.legalStrength;
         const productivity = role.kind === "executor" ? Number(employeeForm.elements.productivity.value) : role.productivity;
-        if ((role.kind === "executor" && (!Number.isInteger(productivity) || productivity < 1)) || (roleId === "lawyer" && ![1, 2, 3].includes(legalStrength))) return;
-        const employee = { ...profile, id: `dev-employee-${state.turn}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, salary: roleId === "lawyer" ? lawyerSalary(legalStrength) : profile.salary, productivity, legalStrength, probationTurns: 0, assignedLabor: 0, mood: "normal", fullSalaryStreak: 0, noWithholdPayStreak: 0, noPremiumPayStreak: 0, withholdPercent: 0, withheldAmount: 0, unpaidOvertime: false, hiredTurn: state.turn };
+        const age = Number(panel.querySelector("#dev-employee-age")?.value ?? 35);
+        const yearsWorked = Number(panel.querySelector("#dev-employee-years")?.value ?? 0);
+        const salary = Number(panel.querySelector("#dev-employee-salary")?.value ?? profile.salary);
+        const loyalty = Number(panel.querySelector("#dev-employee-loyalty")?.value ?? 0);
+        if ((role.kind === "executor" && (!Number.isInteger(productivity) || productivity < 1)) || (roleId === "lawyer" && ![1, 2, 3].includes(legalStrength)) || !Number.isInteger(age) || age < 20 || age > 60 || !Number.isInteger(yearsWorked) || yearsWorked < 0 || !Number.isFinite(salary) || salary < 0 || !Number.isInteger(loyalty) || loyalty < -10 || loyalty > 5) return;
+        const employee = { ...profile, id: `dev-employee-${state.turn}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, age, salary, productivity, legalStrength, probationTurns: 0, assignedLabor: 0, loyalty, loyaltyQuietStreak: 0, mood: "normal", fullSalaryStreak: 0, noWithholdPayStreak: 0, noPremiumPayStreak: 0, withholdPercent: 0, anchoredWithholdPercent: 0, withheldAmount: 0, unpaidOvertime: false, hiredTurn: state.turn, tenureOffsetYears: yearsWorked };
         state.employees.push(employee); countEvent("hired");
         addLog(`DEV: добавлен ${role.name.toLowerCase()} ${employee.name}${roleId === "lawyer" ? ` · ЮС ${legalStrength}` : role.kind === "executor" ? ` · продуктивность ${productivity}` : employee.bonusDescription ? ` · ${employee.bonusDescription}` : ""}.`);
         saveState(); render(); showToast(`${role.name} добавлен в штат`);
@@ -1711,6 +1845,8 @@
     if (!profile) return;
     form.elements.productivity.value = profile.productivity || ROLES[roleId].productivity || 1;
     form.elements.legalStrength.value = profile.legalStrength || 1;
+    const salaryInput = form.querySelector("#dev-employee-salary");
+    if (salaryInput) salaryInput.value = roleId === "lawyer" ? lawyerSalary(Number(form.elements.legalStrength.value)) : profile.salary;
   }
   function addDevProblem(category, houseName) {
     const home = managedHomeByName(houseName);
@@ -1799,7 +1935,7 @@
       const hireLimit = !hasHR() && !pendingHireHasHR() && state.pendingHireIds.filter(id => state.market.some(person => person.id === id && person.role !== "hr")).length >= CONFIG.rules.hiresWithoutHR && candidate.role !== "hr";
       const offeredSalary = candidate.salary * (state.phase === "preparation" ? CONFIG.rules.preparationSalaryMultiplier : 1) * (hasHR() || pendingHireHasHR() ? CONFIG.rules.probationSalaryMultiplier : 1);
       const heading = role.kind === "executor" ? `${role.name} · продуктивность ${candidate.productivity}` : `${role.name} · специалист${candidate.role === "lawyer" ? ` · ЮС ${candidate.legalStrength || 1}` : ""}`;
-      return `<article class="worker-card ${hired ? "worker-selected" : ""} ${roleStaffCount ? "worker-has-incumbents" : ""}">${roleStaffCount ? `<span class="worker-incumbent-count">Уже есть в штате: ${quantity(roleStaffCount)}</span>` : ""}<div class="worker-icon">${role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>${escapeHtml(candidate.name)}</span>${candidate.bonusDescription ? `<span>${escapeHtml(candidate.bonusDescription)}</span>` : ""}<span>ЗП: ${money(offeredSalary)} ₽ / ход${hasHR() || pendingHireHasHR() ? " · испытательный срок" : ""}</span></div><button class="hire-button" data-hire="${escapeHtml(candidate.id)}" ${alreadyEmployed || !( ["staffing", "preparation"].includes(state.phase)) || (!hired && hireLimit) ? "disabled" : ""}>${alreadyEmployed ? "Уже в штате" : hired ? "Убрать из пула" : state.phase === "preparation" ? "В стартовый штат" : "В пул найма"}</button></article>`;
+      return `<article class="worker-card ${hired ? "worker-selected" : ""} ${roleStaffCount ? "worker-has-incumbents" : ""}">${roleStaffCount ? `<span class="worker-incumbent-count">Уже есть в штате: ${quantity(roleStaffCount)}</span>` : ""}<div class="worker-icon">${role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>${escapeHtml(candidate.name)}</span><span>Возраст: ${quantity(candidate.age || 0)} лет</span>${candidate.bonusDescription ? `<span>${escapeHtml(candidate.bonusDescription)}</span>` : ""}<span>ЗП: ${money(offeredSalary)} ₽ / ход${hasHR() || pendingHireHasHR() ? " · испытательный срок" : ""}</span></div><button class="hire-button" data-hire="${escapeHtml(candidate.id)}" ${alreadyEmployed || !( ["staffing", "preparation"].includes(state.phase)) || (!hired && hireLimit) ? "disabled" : ""}>${alreadyEmployed ? "Уже в штате" : hired ? "Убрать из пула" : state.phase === "preparation" ? "В стартовый штат" : "В пул найма"}</button></article>`;
     }).join("");
     const reroll = hasAvailableMarketReroll() || (hasEmployeeBonus("hr", "marketReroll") && state.phase === "staffing") ? `<button type="button" class="dev-wide-button market-reroll-button" data-hr-reroll ${hasAvailableMarketReroll() ? "" : "disabled"}>↻ Перебросить рынок труда (1 раз за ход)</button>` : "";
     elements.market.innerHTML = `${reroll}${cards}`;
@@ -1814,19 +1950,21 @@
       const projectedMood = projectedWithholdingMood(employee);
       const probation = employee.probationTurns > 0 ? `<span class="probation-note">Испытательный срок · осталось ${employee.probationTurns} хода</span>` : "";
       const departure = employee.pendingDeparture;
-      const status = employee.deceased ? "Умер · решение о последней зарплате" : departure ? departure.needsResponse ? "Предложили работу в другом месте" : `Уходит после хода ${departure.turn}` : `Настроение: ${MOOD_LABELS[mood]}${employee.unpaidOvertime ? " · ждёт решения по премии" : ""}`;
+      const status = employee.deceased ? "Умер · решение о последней зарплате" : departure ? departure.needsResponse ? departure.reason === "health" ? "Нужно решить вопрос с лечением" : departure.reason === "dissatisfaction" ? "Просит улучшить условия или уйти" : "Предложили работу в другом месте" : `Уходит после хода ${departure.turn}` : `Лояльность: ${loyaltyOf(employee)} · ${MOOD_LABELS[mood]}${employee.unpaidOvertime ? " · ждёт решения по премии" : ""}`;
       const currentSalary = effectiveSalary(employee);
-      const years = Math.max(0, Math.floor((state.turn - (employee.hiredTurn || 1)) / (SEASONS.length * state.seasonDuration)));
+      const years = Math.max(0, Number(employee.tenureOffsetYears) || 0) + Math.max(0, Math.floor((state.turn - (employee.hiredTurn || 1)) / (SEASONS.length * state.seasonDuration)));
       const pending = state.pendingFireActions[employee.id];
       const heading = role.kind === "executor" ? `${role.name} · продуктивность ${effectiveProductivity(employee)}/${employee.productivity}` : `${role.name} · специалист${employee.role === "lawyer" ? ` · ЮС ${employee.legalStrength || 1}` : ""}`;
-      const detail = role.kind === "executor" ? `Назначено ${employee.assignedLabor} трудозатрат` : role.detail;
+      const detail = role.kind === "executor" ? `Назначено ${employee.assignedLabor} трудозатрат` : `Способность: ${role.detail}`;
       const adjustment = employee.withholdPercent || 0;
       const adjustmentKind = adjustment > 0 ? "Удержание" : adjustment < 0 ? "Премия" : "Без изменений";
       const retentionRaiseUsed = employee.retentionRaiseYear === state.year;
-      const withheldControl = !employee.deceased ? `<label class="withhold-control"><span>Удержание ← · премия →</span><b><span class="withhold-adjustment-kind">${adjustmentKind}</span> · <span class="withhold-value">${Math.abs(adjustment)}</span>%</b><span class="withhold-slider-track"><input type="range" min="-50" max="50" step="1" value="${-adjustment}" data-withhold="${escapeHtml(employee.id)}" aria-label="Удержание слева, премия справа"><i class="withhold-zero-marker">0</i></span></label><small class="withhold-mood-preview">После ближайшей выплаты: ${MOOD_LABELS[projectedMood]}</small>` : "";
+      const anchoredAdjustment = Number(employee.anchoredWithholdPercent) || 0;
+      const withheldControl = !employee.deceased ? `<div class="withhold-control"><div class="withhold-slider-track"><div class="withhold-anchor-caption"><span><i>⚓</i> Постоянно</span><b>${anchoredAdjustment > 0 ? "Удержание" : anchoredAdjustment < 0 ? "Премия" : "Без изменений"} · ${Math.abs(anchoredAdjustment)}%</b></div><input class="withhold-range withhold-anchor-range" type="range" min="-50" max="50" step="1" value="${-anchoredAdjustment}" data-withhold-anchor="${escapeHtml(employee.id)}" aria-label="Постоянный процент удержания или премии"><div class="withhold-current-caption"><span>Ближайший ход</span><b><span class="withhold-adjustment-kind">${adjustmentKind}</span> · <span class="withhold-value">${Math.abs(adjustment)}</span>%</b></div><input class="withhold-range withhold-current-range" type="range" min="-50" max="50" step="1" value="${-adjustment}" data-withhold="${escapeHtml(employee.id)}" aria-label="Процент удержания или премии на ближайший ход"><button type="button" class="withhold-zero-marker" data-withhold-zero="${escapeHtml(employee.id)}" aria-label="Сбросить якорный и ближайший проценты в ноль">0</button></div><small class="withhold-mood-preview">После выплаты: ${projectedMood}</small></div>` : "";
       const individualWithheld = (employee.withheldAmount || 0) > 0 ? `<small class="withheld-employee-total">Удержано: ${money(employee.withheldAmount)} ₽</small><button type="button" class="pay-employee-withheld" data-pay-withheld-employee="${escapeHtml(employee.id)}" ${state.capital < employee.withheldAmount ? "disabled" : ""}>Выплатить этому сотруднику</button>` : "";
-      const fireButtons = employee.deceased ? `<button class="fire-button ${pending === "paid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "paid" ? "✓ " : ""}Выплатить последнюю зарплату</button><button class="fire-unpaid-button ${pending === "unpaid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "unpaid" ? "✓ " : ""}Без выплаты</button>` : departure?.needsResponse ? `<button class="fire-button" data-stay-offer="${escapeHtml(employee.id)}" ${retentionRaiseUsed ? "disabled title=\"Повышение зарплаты этому сотруднику уже предлагали в этом году\"" : ""}>${retentionRaiseUsed ? "Повышение уже было в этом году" : `Предложить остаться · +${CONFIG.rules.employeeRetentionSalaryIncreasePercent}% ЗП`}</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить после хода</button>` : pending ? `<button class="fire-button" data-fire-cancel="${escapeHtml(employee.id)}">Вернуть в штат</button>` : `<button class="fire-button" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · с выплатой</button><button class="fire-unpaid-button" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · без выплаты</button>`;
-      const card = `<article class="team-member role-${role.kind} team-mood-${mood} ${employee.deceased ? "team-deceased" : ""} ${departure ? "team-departing" : ""} ${employee.probationTurns > 0 ? "team-probation" : ""} ${pending ? "team-pending-fire" : ""}"><div class="worker-icon">${employee.deceased ? "🕯️" : role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>${escapeHtml(employee.name || "Сотрудник")}</span><span>ЗП: ${money(currentSalary)} ₽ / ход${employee.probationTurns > 0 ? " · половина ставки" : ""}</span><span>${detail}</span>${employee.bonusDescription ? `<span>${escapeHtml(employee.bonusDescription)}</span>` : ""}${probation}<span>${years} ${years === 1 ? "год" : years > 1 && years < 5 ? "года" : "лет"} в компании</span>${withheldControl}${individualWithheld}</div><span class="worker-status ${mood} ${employee.deceased ? "deceased" : departure ? "departing" : ""}">${pending && !employee.deceased ? `В пуле на увольнение · ${pending === "paid" ? "с выплатой" : "без выплаты"}` : status}</span><div class="fire-actions">${fireButtons}</div></article>`;
+      const fireButtons = employee.deceased ? `<button class="fire-button ${pending === "paid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "paid" ? "✓ " : ""}Выплатить последнюю зарплату</button><button class="fire-unpaid-button ${pending === "unpaid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "unpaid" ? "✓ " : ""}Без выплаты</button>` : departure?.needsResponse && departure.reason === "health" ? `<button class="fire-button" data-treat-employee="${escapeHtml(employee.id)}">Лечение · ${money(currentSalary * 3)} ₽</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Не лечить · уйдёт</button>` : departure?.needsResponse && departure.reason === "dissatisfaction" ? `<button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="0">Выплатить удержания · шанс 50%</button><button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="50">Удержания + премия 50% · шанс 100%</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : departure?.needsResponse && departure.reason === "lowReputation" ? `<button class="fire-button" data-stay-outside="${escapeHtml(employee.id)}">Оставить с повышением ЗП</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : departure?.needsResponse ? `<button class="fire-button" data-stay-offer="${escapeHtml(employee.id)}" ${retentionRaiseUsed ? "disabled title=\"Повышение зарплаты этому сотруднику уже предлагали в этом году\"" : ""}>${retentionRaiseUsed ? "Повышение уже было в этом году" : `Оставить · +${hasHR() ? 10 : CONFIG.rules.employeeRetentionSalaryIncreasePercent}% ЗП`}</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : pending ? `<button class="fire-button" data-fire-cancel="${escapeHtml(employee.id)}">Вернуть в штат</button>` : `<button class="fire-button" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · с выплатой</button><button class="fire-unpaid-button" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · без выплаты</button>`;
+      const departureActions = departure?.needsResponse && departure.reason === "health" ? `<button class="fire-button" data-treat-employee="${escapeHtml(employee.id)}">Оплатить лечение · ${money(currentSalary * 3)} ₽</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Не оплачивать · уйдёт</button>` : departure?.needsResponse && departure.reason === "dissatisfaction" ? `<button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="0">Выплатить удержания</button><button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="50">Премировать и удержать · +50%</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : fireButtons;
+      const card = `<article class="team-member role-${role.kind} team-mood-${mood} ${employee.deceased ? "team-deceased" : ""} ${departure ? "team-departing" : ""} ${employee.probationTurns > 0 ? "team-probation" : ""} ${pending ? "team-pending-fire" : ""}"><div class="worker-icon">${employee.deceased ? "🕯️" : role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>Роль: ${role.kind === "specialist" ? "Специалист" : "Исполнитель"}</span><span>${escapeHtml(employee.name || "Сотрудник")}</span><span>Возраст: ${quantity(employee.age || 0)} лет</span><span>ЗП: ${money(currentSalary)} ₽ / ход${employee.probationTurns > 0 ? " · половина ставки" : ""}</span><span>${detail}</span>${employee.bonusDescription ? `<span>${escapeHtml(employee.bonusDescription)}</span>` : ""}${probation}<span>${years} ${years === 1 ? "год" : years > 1 && years < 5 ? "года" : "лет"} в компании</span>${withheldControl}${individualWithheld}</div><span class="worker-status ${mood} ${employee.deceased ? "deceased" : departure ? "departing" : ""}">${pending && !employee.deceased ? `В пуле на увольнение · ${pending === "paid" ? "с выплатой" : "без выплаты"}` : status}</span><div class="fire-actions">${departureActions}</div></article>`;
       return [employee.id, card];
     }));
     const roleOrders = { specialist: ["lawyer", "accountant", "hr", "engineer", "marketer"], executor: ["plumber", "electrician", "handyman", "janitor"] };
@@ -1850,15 +1988,42 @@
       const adjustment = -Number(slider.value);
       workerInfo.querySelector(".withhold-value").textContent = Math.abs(adjustment);
       workerInfo.querySelector(".withhold-adjustment-kind").textContent = adjustment > 0 ? "Удержание" : adjustment < 0 ? "Премия" : "Без изменений";
-      if (employee) workerInfo.querySelector(".withhold-mood-preview").textContent = `После ближайшей выплаты: ${MOOD_LABELS[projectedWithholdingMood(employee, adjustment)]}`;
+      if (employee) workerInfo.querySelector(".withhold-mood-preview").textContent = `После выплаты: ${projectedWithholdingMood(employee, adjustment)}`;
+      const retentionButton = slider.closest(".team-member")?.querySelector('[data-departure-reason="outsideOffer"]');
+      if (employee && retentionButton) retentionButton.textContent = `Премировать и удержать · ${money(outsideOfferRetentionPayment(employee, adjustment))} ₽ · шанс 50%`;
     }));
     elements.team.querySelectorAll("[data-withhold]").forEach(slider => slider.addEventListener("change", () => {
       const employee = state.employees.find(item => item.id === slider.dataset.withhold);
       if (!employee) return;
-      const next = -Number(slider.value);
-      employee.withholdPercent = next; saveState(); render();
+      employee.withholdPercent = -Number(slider.value); saveState(); render();
     }));
-    elements.team.querySelectorAll("[data-stay-offer]").forEach(button => button.addEventListener("click", () => respondToOutsideOffer(button.dataset.stayOffer, true)));
+    elements.team.querySelectorAll("[data-withhold-anchor]").forEach(slider => slider.addEventListener("input", () => {
+      const employee = state.employees.find(item => item.id === slider.dataset.withholdAnchor);
+      if (!employee) return;
+      const value = -Number(slider.value);
+      const caption = slider.closest(".withhold-control").querySelector(".withhold-anchor-caption b");
+      caption.textContent = `${value > 0 ? "Удержание" : value < 0 ? "Премия" : "Без изменений"} · ${Math.abs(value)}%`;
+    }));
+    elements.team.querySelectorAll("[data-withhold-anchor]").forEach(slider => slider.addEventListener("change", () => {
+      const employee = state.employees.find(item => item.id === slider.dataset.withholdAnchor);
+      if (!employee) return;
+      employee.anchoredWithholdPercent = -Number(slider.value); saveState(); render();
+    }));
+    elements.team.querySelectorAll("[data-withhold-zero]").forEach(button => button.addEventListener("click", () => {
+      const employee = state.employees.find(item => item.id === button.dataset.withholdZero);
+      if (!employee) return;
+      employee.anchoredWithholdPercent = 0; employee.withholdPercent = 0;
+      saveState(); render();
+    }));
+    elements.team.querySelectorAll("[data-stay-offer]").forEach(button => {
+      button.addEventListener("click", () => respondToOutsideOffer(button.dataset.stayOffer, true));
+      const employee = state.employees.find(item => item.id === button.dataset.stayOffer);
+      const payout = employee ? outsideOfferRetentionPayment(employee) : 0;
+      button.insertAdjacentHTML("afterend", `<button class="fire-button" data-retain-loyal-employee="${escapeHtml(button.dataset.stayOffer)}" data-departure-reason="outsideOffer" data-premium="50">Премировать и удержать · ${money(payout)} ₽ · шанс 50%</button>`);
+    });
+    elements.team.querySelectorAll("[data-stay-outside]").forEach(button => button.addEventListener("click", () => respondToOutsideOffer(button.dataset.stayOutside, true)));
+    elements.team.querySelectorAll("[data-treat-employee]").forEach(button => button.addEventListener("click", () => resolveHealthDeparture(button.dataset.treatEmployee, true)));
+    elements.team.querySelectorAll("[data-retain-loyal-employee]").forEach(button => button.addEventListener("click", () => resolveDissatisfactionDeparture(button.dataset.retainLoyalEmployee, Number(button.dataset.premium), button.dataset.departureReason || "dissatisfaction")));
     elements.team.querySelectorAll("[data-depart-offer]").forEach(button => button.addEventListener("click", () => respondToOutsideOffer(button.dataset.departOffer, false)));
     document.getElementById("pay-withheld-wages")?.addEventListener("click", payWithheldWages);
     elements.team.querySelectorAll("[data-pay-withheld-employee]").forEach(button => button.addEventListener("click", () => payEmployeeWithheldWages(button.dataset.payWithheldEmployee)));
@@ -2357,7 +2522,7 @@
     const executorCount = CONFIG.rules.marketExecutors + expandedMarketCount * CONFIG.rules.hrExpandedMarketExecutors;
     const specialistCount = CONFIG.rules.marketSpecialists + expandedMarketCount * CONFIG.rules.hrExpandedMarketSpecialists;
     const selected = [...shuffle(executors).slice(0, executorCount), ...shuffle(specialists).slice(0, specialistCount)];
-    return selected.map((person, index) => ({ ...person, id: `staff-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}` }));
+    return selected.map((person, index) => ({ ...person, age: 20 + Math.floor(Math.random() * 41), id: `staff-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}` }));
   }
 
   function rerollMarketByHR() {
@@ -2473,6 +2638,7 @@
     const input = document.getElementById("company-name-input");
     const companyName = input.value.trim() || DEFAULT_COMPANY_NAMES[Math.floor(Math.random() * DEFAULT_COMPANY_NAMES.length)];
     state.companyName = companyName;
+    state.employees.forEach(employee => { employee.withholdPercent = Number(employee.anchoredWithholdPercent) || 0; });
     state.houseDeck = state.houseDeck.filter(house => house.name !== state.houseName);
     if (!state.houseDeck.length) state.houseDeck = shuffle(HOUSE_CARDS.filter(house => house.name !== state.houseName));
     applyStaffingChanges();
@@ -2525,7 +2691,7 @@
       const role = ROLES[candidate.role];
       const probationTurns = hrPresent ? CONFIG.rules.probationTurns : 0;
       const salary = candidate.salary * (state.phase === "preparation" ? CONFIG.rules.preparationSalaryMultiplier : 1);
-      state.employees.push({ ...candidate, salary, productivity: candidate.productivity, legalStrength: candidate.role === "lawyer" ? candidate.legalStrength || 1 : candidate.legalStrength, probationTurns, assignedLabor: 0, mood: "normal", fullSalaryStreak: 0, noWithholdPayStreak: 0, noPremiumPayStreak: 0, withholdPercent: 0, withheldAmount: 0, unpaidOvertime: false, hiredTurn: state.turn });
+      state.employees.push({ ...candidate, age: Number.isInteger(candidate.age) ? candidate.age : 20 + Math.floor(Math.random() * 41), salary, productivity: candidate.productivity, legalStrength: candidate.role === "lawyer" ? candidate.legalStrength || 1 : candidate.legalStrength, probationTurns, assignedLabor: 0, loyalty: 0, loyaltyQuietStreak: 0, mood: "normal", fullSalaryStreak: 0, noWithholdPayStreak: 0, noPremiumPayStreak: 0, withholdPercent: 0, anchoredWithholdPercent: 0, withheldAmount: 0, unpaidOvertime: false, hiredTurn: state.turn });
       state.hiresThisTurn += 1; countEvent("hired");
       const hireLog = [`Нанят сотрудник: ${role.name} ${candidate.name}, постоянная зарплата ${money(salary)} ₽ / ход${probationTurns ? " до учёта испытательного срока" : ""}.`];
       if (state.phase === "preparation") hireLog.push(`Стартовый найм сохранил для ${candidate.name} зарплату на 30% ниже установленной: ${money(salary)} ₽ / ход.`);
@@ -2541,18 +2707,18 @@
       const [employee] = state.employees.splice(index, 1);
       const finalSalary = effectiveSalary(employee);
       countEvent("fired");
+      const complaintChance = complaintProbability(moodComplaintChance(employee));
       if (employee.deceased) {
         if (action === "paid") { changeCapital(-finalSalary, "последняя зарплата умершего сотрудника"); addLog(`Закрыт расчёт с умершим сотрудником ${employee.name}: выплачена последняя зарплата ${money(finalSalary)} ₽.`); }
-        else addLog(`Закрыт расчёт с умершим сотрудником ${employee.name}: последняя зарплата не выплачена.`);
+        else { state.reputation -= 1; addLog(`Закрыт расчёт с умершим сотрудником ${employee.name}: последняя зарплата семье не выплачена, репутация −1.`); }
         continue;
       }
       if (action === "paid") { changeCapital(-finalSalary, "последняя зарплата при увольнении"); addLog(`Сотрудник уволен: ${roleName(employee.role)}. Выплачена последняя зарплата ${money(finalSalary)} ₽.`); }
       else {
-        employee.mood = "veryDissatisfied";
+        employee.loyalty = -10; employee.mood = "veryDissatisfied";
         if (employee.probationTurns <= 0) state.reputation -= CONFIG.rules.unpaidFiringReputationPenalty;
         addLog(`Сотрудник уволен без выплаты: ${roleName(employee.role)}; настроение «Очень недоволен»${employee.probationTurns <= 0 ? "; репутация −1" : " (испытательный срок)"}.`);
       }
-      const complaintChance = complaintProbability(moodComplaintChance(employee));
       if (complaintChance > 0 && Math.random() < complaintChance) {
         const penalty = { id: `fine-${state.turn}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, employeeName: roleName(employee.role), salary: finalSalary, amount: finalSalary * CONFIG.rules.laborInspectionFineSalaryMultiplier, year: state.year, turn: state.turn, houseName: state.houseName, houseAddress: state.houseAddress, paid: false, writtenOff: false };
         state.penalties.push(penalty); addLog(`${employee.name} пожаловался в трудовую инспекцию; назначен штраф ${money(penalty.amount)} ₽ (шанс ${Math.round(complaintChance * 100)}%).`);
@@ -2872,7 +3038,11 @@
       const outstandingCompensations = state.compensations.filter(claim => resolvedRequests.some(card => card.id === claim.requestId) && !claim.paid && !claim.writtenOff).reduce((sum, claim) => sum + claim.amount, 0);
       addLog(`ОСС приняло капитальный ремонт категории «${category}». Устранено проблем: ${categoryProblems.length}; автоматически выполнено связанных заявок: ${resolvedRequests.length}. Штрафы и компенсации сохранены${outstandingCompensations ? ` (компенсации к выплате: ${money(outstandingCompensations)} ₽)` : ""}. Репутация +${CONFIG.rules.clearedProblemCategoryReputationBonus}.`);
       updateHouseSafetyStatus();
-    } else addLog(`ОСС по капитальному ремонту категории «${category}» не набрало кворум. Проблемы остаются.`);
+    } else {
+      home.capitalRepairOssRetryTurn = home.capitalRepairOssRetryTurn || {};
+      home.capitalRepairOssRetryTurn[category] = state.turn + 1;
+      addLog(`ОСС по капитальному ремонту категории «${category}» не набрало кворум. Проблемы остаются. Повторное голосование доступно со следующего хода.`);
+    }
     saveState(); render(); showToast(vote.success ? `Капитальный ремонт «${category}» принят без затрат.` : "ОСС не набрало кворум.");
   }
 
@@ -2886,7 +3056,9 @@
     if (state.phase === "drawing") state.houseProblems.forEach(problem => {
       const houseName = problem.houseName || state.houseName;
       const voteKey = `${houseName}:${problem.category}`;
-      if (seen.has(voteKey) || state.ossVoteUsedCategories.includes(voteKey)) return;
+      if (seen.has(voteKey)) return;
+      const retryTurn = managedHomeByName(houseName)?.capitalRepairOssRetryTurn?.[problem.category] || 0;
+      if (retryTurn > state.turn || state.ossVoteUsedCategories.includes(voteKey)) return;
       seen.add(voteKey);
       const categoryProblems = state.houseProblems.filter(item => item.category === problem.category && item.houseName === houseName);
       const wear = categoryProblems.reduce((sum, item) => sum + item.wear, 0);
@@ -3022,7 +3194,6 @@
     if (!changeCapital(card.payout, "доход по платной заявке")) return;
     state.seasonFinancials.paidIncome += card.payout || 0;
     completeRequest(card, "employee");
-    if (!plan.premium) setDissatisfied(employee);
     checkBankruptcy();
     saveState(); render(); showToast(card.payout ? `${roleName(employee.role)} выполнил платную заявку: доход +${money(card.payout)} ₽` : plan.premium ? `Работа выполнена, премия −${money(plan.premium)} ₽` : `${roleName(employee.role)} выполнил заявку.`);
   }
@@ -3046,8 +3217,8 @@
     setDissatisfied(employee);
     completeRequest(card, "employee");
     checkBankruptcy();
-    addLog(`${roleName(employee.role)} выполнил заявку «${card.title}» без премии за переработку (${money(plan.premium)} ₽). ${card.type === "paid" ? "Материалы оплатил заявитель." : `Материалов использовано ${quantity(materialUnits)} ед. (со склада ${quantity(materialStockUsed)}, покупка ${money(materialCost)} ₽).`} Доход: ${money(card.payout)} ₽. На следующем ходу сотрудник будет недоволен.`);
-    saveState(); render(); showToast(`${roleName(employee.role)} выполнит работу без премии; следующий ход будет недоволен.`);
+    addLog(`${roleName(employee.role)} выполнил заявку «${card.title}» без премии за переработку (${money(plan.premium)} ₽). ${card.type === "paid" ? "Материалы оплатил заявитель." : `Материалов использовано ${quantity(materialUnits)} ед. (со склада ${quantity(materialStockUsed)}, покупка ${money(materialCost)} ₽).`} Доход: ${money(card.payout)} ₽. Лояльность снизится на 1 после расчёта ЗП и БО.`);
+    saveState(); render(); showToast(`${roleName(employee.role)} выполнил заявку без премии; лояльность снизится после расчёта ЗП и БО.`);
   }
 
   function cancelRequest(index) {
@@ -3073,7 +3244,7 @@
     state.pendingHireIds = [];
     state.pendingFireActions = {};
     state.marketRerollUsedTurn = null;
-    state.employees.forEach(employee => { employee.assignedLabor = 0; employee.unpaidOvertime = false; });
+    state.employees.forEach(employee => { employee.assignedLabor = 0; employee.unpaidOvertime = false; employee.withholdPercent = Number(employee.anchoredWithholdPercent) || 0; });
     processEmployeeEvents();
     state.market = makeMarket(state.employees);
     const marketHR = activeEmployees().find(employee => employee.role === "hr" && employee.bonus === "expandedMarket");
@@ -3128,29 +3299,17 @@
         employee.noWithholdPayStreak = 0;
         employee.noPremiumPayStreak = 0;
         employee.fullSalaryStreak = 0;
-        const before = moodOf(employee); changeMood(employee, -1);
-        addLog(`Удержано ${money(adjustment)} ₽ из зарплаты ${employee.name}; настроение ${MOOD_LABELS[before]} → ${MOOD_LABELS[moodOf(employee)]}.`);
+        addLog(`Удержано ${money(adjustment)} ₽ из зарплаты ${employee.name}; проверка изменения лояльности на −1 с вероятностью ${Math.round(adjustmentPercent)}% пройдёт после сбора БО.`);
       } else if (adjustment < 0) {
         employee.noWithholdPayStreak = 0;
         employee.noPremiumPayStreak = 0;
         employee.fullSalaryStreak = 0;
-        const before = moodOf(employee); employee.mood = "satisfied";
-        addLog(`Премия ${employee.name} составила ${money(-adjustment)} ₽; настроение ${MOOD_LABELS[before]} → ${MOOD_LABELS.satisfied}.`);
+        addLog(`Премия ${employee.name} составила ${money(-adjustment)} ₽; проверка изменения лояльности на +1 с вероятностью ${Math.round(Math.abs(adjustmentPercent))}% пройдёт после сбора БО.`);
       } else {
         employee.noPremiumPayStreak = (employee.noPremiumPayStreak || 0) + 1;
         const allWithheldPaid = (employee.withheldAmount || 0) <= 0 && adjustmentPercent <= 0;
         employee.noWithholdPayStreak = allWithheldPaid ? (employee.noWithholdPayStreak || 0) + 1 : 0;
-        if (moodOf(employee) === "veryDissatisfied" && employee.noWithholdPayStreak >= 2) {
-          const before = moodOf(employee); changeMood(employee, 1); employee.noWithholdPayStreak = 0;
-          addLog(`${employee.name} провёл два хода без удержаний после выплаты долга по зарплате: настроение ${MOOD_LABELS[before]} → ${MOOD_LABELS[moodOf(employee)]}.`);
-        } else if (moodOf(employee) === "dissatisfied" && employee.noWithholdPayStreak >= 3) {
-          const before = moodOf(employee); changeMood(employee, 1); employee.noWithholdPayStreak = 0;
-          addLog(`${employee.name} провёл три хода без удержаний после выплаты долга по зарплате: настроение ${MOOD_LABELS[before]} → ${MOOD_LABELS[moodOf(employee)]}.`);
-        }
-        if (moodOf(employee) === "satisfied" && employee.noPremiumPayStreak >= 4) {
-          employee.mood = "normal"; employee.noPremiumPayStreak = 0;
-          addLog(`${employee.name} четыре хода подряд не получал премию: настроение Доволен → Норм.`);
-        }
+        if (adjustmentPercent === 0 && employee.unpaidOvertime) employee.loyaltyQuietStreak = 0;
       }
       if (employee.probationTurns > 0) employee.probationTurns -= 1;
     });
@@ -3185,6 +3344,31 @@
     state.seasonFinancials.salaries += amount;
     addLog(`Выплачена удержанная зарплата ${employee.name}: −${money(amount)} ₽.`);
     checkBankruptcy(); saveState(); render(); showToast(`Удержанная зарплата ${employee.name} выплачена: −${money(amount)} ₽.`);
+  }
+
+  function applyEmployeeLoyaltyAfterPayroll(logs) {
+    state.employees.forEach(employee => {
+      if (employee.deceased) return;
+      const before = loyaltyOf(employee), adjustment = Number(employee.withholdPercent) || 0;
+      if (adjustment > 0) {
+        employee.loyaltyQuietStreak = 0;
+        if (Math.random() < adjustment / 100) changeLoyalty(employee, -1);
+        logs.push(`${employee.name}: удержание ${adjustment}% — лояльность ${before} → ${loyaltyOf(employee)}.`);
+      } else if (adjustment < 0) {
+        employee.loyaltyQuietStreak = 0;
+        if (Math.random() < Math.abs(adjustment) / 100) changeLoyalty(employee, 1);
+        logs.push(`${employee.name}: премия ${Math.abs(adjustment)}% — лояльность ${before} → ${loyaltyOf(employee)}.`);
+      } else if (!employee.unpaidOvertime && (employee.withheldAmount || 0) <= 0) {
+        const recovered = neutralLoyaltyRecovery(employee);
+        logs.push(recovered ? `${employee.name}: после периода без удержаний лояльность ${before} → ${loyaltyOf(employee)}.` : `${employee.name}: без доплат и удержаний (${employee.loyaltyQuietStreak} ход подряд), лояльность ${loyaltyOf(employee)}.`);
+      } else employee.loyaltyQuietStreak = 0;
+      if (employee.unpaidOvertime) {
+        employee.loyaltyQuietStreak = 0;
+        changeLoyalty(employee, -1);
+        logs.push(`${employee.name}: переработка без доплаты — дополнительное снижение лояльности на 1.`);
+      }
+      employee.mood = moodOf(employee);
+    });
   }
 
   function collectSeason() {
@@ -3252,6 +3436,7 @@
       if (unpaid) seasonLog.push(hasAccountant() ? `Бухгалтерия сохранила долг дома «${home.name}»: ${money(unpaid)} ₽.` : `Без бухгалтера долг дома «${home.name}» учитывается только за этот период: ${money(unpaid)} ₽.`);
       seasonLog.push(`Собрано с дома «${home.name}»: +${money(collected)} ₽ из ${money(billed)} ₽.`);
     });
+    applyEmployeeLoyaltyAfterPayroll(seasonLog);
     const overdueRequests = state.requests.filter(card => !card.resolved && !card.cancelled && requestIsOverdue(card));
     const noOverdueMarketers = activeEmployees().filter(employee => employee.role === "marketer" && employee.bonus === "noOverdueReputation");
     if (!overdueRequests.length && noOverdueMarketers.length) {
@@ -3328,6 +3513,7 @@
       addLog(`По каждому дому проведено ОСС на изменение тарифа или игрок явно отказался от голосования. Репутация +${bonus}.`);
     }
     state.year += 1;
+    state.employees.forEach(employee => { employee.age = Math.min(60, (Number(employee.age) || 20) + 1); });
     state.houseAge += 1;
     state.additionalHomes.forEach(home => {
       home.age = (Number(home.age) || 0) + 1;
@@ -3358,7 +3544,7 @@
     state.pendingHireIds = [];
     state.pendingFireActions = {};
     state.marketRerollUsedTurn = null;
-    state.employees.forEach(employee => { employee.assignedLabor = 0; employee.unpaidOvertime = false; });
+    state.employees.forEach(employee => { employee.assignedLabor = 0; employee.unpaidOvertime = false; employee.withholdPercent = Number(employee.anchoredWithholdPercent) || 0; });
     processEmployeeEvents();
     state.market = makeMarket(state.employees);
     addLog(`Начался ${state.year} год. Сезон: ${SEASONS[state.seasonIndex]}. Стартовый капитал: ${money(state.capital)} ₽. Нерешённых аварийных заявок перенесено: ${state.requests.length}.`);
@@ -3382,29 +3568,32 @@
 
     for (const employee of activeEmployees()) {
       if (employee.pendingDeparture || employee.deceased) continue;
+      const hrPresent = activeEmployees().some(person => person.role === "hr");
       const causes = [
-        { reason: "death", label: "Смерть", chance: CONFIG.rules.employeeDeathChance ?? 0.001, immediate: true },
-        { reason: "health", label: "Проблемы со здоровьем", chance: CONFIG.rules.employeeHealthDepartureChance ?? 0.02 },
-        { reason: "outsideOffer", label: "Предложили зарплату выше в другом месте", chance: CONFIG.rules.employeeOutsideOfferChance ?? 0.05, needsResponse: true },
-        ...(state.reputation < (CONFIG.rules.employeeDepartureLowReputationThreshold ?? -15) && moodOf(employee) !== "satisfied" ? [{ reason: "lowReputation", label: "Нежелание работать в компании с ТАКОЙ низкой репутацией", chance: CONFIG.rules.employeeDepartureLowReputationChance ?? 0.2 }] : []),
-        { reason: "dissatisfaction", label: `Увольнение по собственному желанию из-за настроения «${MOOD_LABELS[moodOf(employee)]}»`, chance: moodTurnoverChance(employee) }
+        { reason: "death", label: "Смерть сотрудника", chance: loyaltyOf(employee) >= -4 ? boundedProbability(employee.age / 20) : 0, immediate: true },
+        { reason: "health", label: "Проблемы со здоровьем", chance: boundedProbability(1 + employee.age / 10), needsResponse: true },
+        { reason: "outsideOffer", label: "Получил предложение от конкурента", chance: outsideOfferChance(employee), needsResponse: true },
+        { reason: "lowReputation", label: "Увольнение из-за плохой репутации УО", chance: lowReputationDepartureChance(employee), needsResponse: true },
+        { reason: "dissatisfaction", label: "Увольнение по собственному желанию", chance: moodTurnoverChance(employee), needsResponse: true }
       ].filter(cause => cause.chance > 0);
-      const totalChance = causes.reduce((sum, cause) => sum + cause.chance, 0);
-      // Give every employee their own chance check; choose a reason only if it succeeds.
-      if (Math.random() >= totalChance) continue;
-      let causeRoll = Math.random() * totalChance;
-      const departure = causes.find(cause => (causeRoll -= cause.chance) < 0);
+      // Каждый сотрудник проходит отдельную проверку; выбирается не более одной причины.
+      let departure = null;
+      for (const cause of causes) if (Math.random() < cause.chance) { departure = cause; break; }
       if (!departure) continue;
-      departure.turn = state.turn;
+      departure.turn = state.turn + (!departure.immediate && departure.reason !== "health" && hrPresent ? state.seasonDuration - 1 : 0);
+      departure.season = state.seasonIndex;
       employee.pendingDeparture = departure;
       if (departure.immediate) {
         employee.deceased = true;
         employee.pendingDeparture.settlementDueTurn = state.turn + 1;
-        addLog(`${employee.name} умер. Он немедленно выведен из трудоспособности; на следующем этапе менеджмента нужно решить вопрос о последней зарплате.`);
+        addLog(`${employee.name}, ${employee.age} лет, умер. Он немедленно выведен из трудоспособности. При отказе выплатить семье последнюю зарплату репутация снизится на 1.`);
       } else if (departure.needsResponse) {
-        addLog(`${employee.name}: «Предложили зарплату выше в другом месте» (шанс ${Math.round(departure.chance * 100)}%). Можно предложить остаться с повышением зарплаты на ${CONFIG.rules.employeeRetentionSalaryIncreasePercent ?? 20}% или отпустить после последнего рабочего хода.`);
+        if (departure.reason === "outsideOffer") addLog(`${employee.name}: предложение от конкурента (шанс ${Math.round(departure.chance * 100)}%). Можно предложить повышение ЗП на ${hrPresent ? 10 : CONFIG.rules.employeeRetentionSalaryIncreasePercent ?? 20}%.`);
+        else if (departure.reason === "health") addLog(`${employee.name}: проблемы со здоровьем (шанс ${Math.round(departure.chance * 100)}%). Лечение стоит ${money(effectiveSalary(employee) * 3)} ₽ и устанавливает лояльность +5.`);
+        else if (departure.reason === "dissatisfaction") addLog(`${employee.name} хочет уволиться из-за лояльности ${loyaltyOf(employee)}. Можно погасить удержания и предложить премию; вероятность остаться зависит от размера премии.`);
+        else addLog(`${employee.name} хочет покинуть компанию из-за репутации ${state.reputation} (шанс ${Math.round(departure.chance * 100)}%).`);
       } else {
-        addLog(`${employee.name} решил уйти: «${departure.label}» (шанс ${Math.round(departure.chance * 100)}%). Он доработает этот ход и покинет штат на следующем менеджменте.`);
+        addLog(`${employee.name} решил уйти: «${departure.label}» (шанс ${Math.round(departure.chance * 100)}%).`);
       }
     }
   }

@@ -811,11 +811,24 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .team-mood-satisfied { border-color:#d7e8c4; background:#f5f9ef; }
 .team-mood-dissatisfied { border-color:#ebd5c1; background:#fff9f2; }
 .team-mood-veryDissatisfied { border-color:#e5c0b7; background:#fff4f1; }
-.withhold-control { display:grid; grid-template-columns:1fr auto; gap:4px; color:#8c593f; font-size:8px; }
-.withhold-slider-track { position:relative; grid-column:1/-1; display:block; padding:2px 0 13px; }
-.withhold-control input[type="range"] { display:block; width:100%; margin:0; accent-color:#a75c42; }
-.withhold-zero-marker { position:absolute; top:3px; left:50%; z-index:1; transform:translateX(-50%); padding:0 2px; background:#fffefa; color:#59634f; font-size:8px; font-style:normal; font-weight:800; pointer-events:none; }
-.withhold-zero-marker::before { position:absolute; top:9px; left:50%; height:13px; border-left:1px solid #354538; content:""; }
+.withhold-control { display:grid; gap:3px; color:#8c593f; font-size:8px; }
+.withhold-slider-track { position:relative; display:block; height:58px; margin:2px 0 0; }
+.withhold-slider-track::before { position:absolute; top:29px; left:5px; right:5px; height:2px; background:#d6d8c9; content:""; }
+.withhold-control input[type="range"].withhold-range { position:absolute; left:0; z-index:2; display:block; width:100%; height:20px; margin:0; padding:0; appearance:none; background:transparent; pointer-events:auto; }
+.withhold-anchor-range { top:9px; accent-color:#59733c; }
+.withhold-current-range { top:34px; accent-color:#a75c42; }
+.withhold-control input[type="range"].withhold-range::-webkit-slider-runnable-track { height:2px; background:transparent; }
+.withhold-control input[type="range"].withhold-range::-moz-range-track { height:2px; background:transparent; }
+.withhold-control input[type="range"].withhold-range::-webkit-slider-thumb { width:13px; height:13px; margin-top:-5px; appearance:none; border:2px solid #fff; border-radius:50%; background:#a75c42; box-shadow:0 0 0 1px #a75c42; pointer-events:auto; }
+.withhold-control input[type="range"].withhold-anchor-range::-webkit-slider-thumb { background:#59733c; box-shadow:0 0 0 1px #59733c; }
+.withhold-control input[type="range"].withhold-range::-moz-range-thumb { width:10px; height:10px; border:2px solid #fff; border-radius:50%; background:#a75c42; box-shadow:0 0 0 1px #a75c42; pointer-events:auto; }
+.withhold-control input[type="range"].withhold-anchor-range::-moz-range-thumb { background:#59733c; box-shadow:0 0 0 1px #59733c; }
+.withhold-anchor-caption,.withhold-current-caption { position:absolute; left:0; right:0; z-index:1; display:flex; justify-content:space-between; align-items:center; gap:5px; color:#787c6c; font-size:7px; line-height:1; pointer-events:none; }
+.withhold-anchor-caption { top:0; }
+.withhold-current-caption { bottom:0; }
+.withhold-anchor-caption i { margin-right:2px; color:#59733c; font-size:9px; font-style:normal; }
+.withhold-zero-marker { position:absolute; top:29px; left:50%; z-index:4; transform:translate(-50%,-50%); min-width:18px; height:16px; padding:0 3px; border:1px solid #dfe3d5; border-radius:8px; background:#fffefa; color:#364739; font:800 8px "DM Sans",sans-serif; cursor:pointer; }
+.withhold-zero-marker:hover { border-color:#879a68; background:#f1f5e9; }
 .withhold-mood-preview { color:#8c593f; font-size:9px; }
 .withheld-employee-total { color:#8f684e !important; }
 .team-member.team-deceased { border-color:#d9bcb4; background:#fff5f2; }

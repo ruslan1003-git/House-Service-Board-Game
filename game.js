@@ -8,7 +8,7 @@
   const HOUSE_PROBLEMS = CONFIG.houseProblems;
   const EMPTY_COUNTS = { accepted: 0, completed: 0, cancelled: 0, hired: 0, fired: 0 };
   const HOUSE_CARDS = CONFIG.houses;
-  const INITIAL_STATE = { turn: 1, year: 1, managedSinceYear: 1, seasonIndex: 0, seasonTurnIndex: 0, seasonDuration: 1, startingSeasonIndex: 0, badGameMode: false, complaintModifierPercent: 100, founderAccount: 0, founderLoans: [], badGameResult: "", withheldWages: 0, legalCases: [], capital: CONFIG.economy.startingCapital, reputation: CONFIG.economy.startingReputation, houses: 1, area: CONFIG.economy.startingArea, primaryArea: CONFIG.economy.startingArea, additionalHomes: [], newHouseOssUsedTurn: null, houseName: CONFIG.economy.startingHouseName, houseAddress: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.address || "", houseAge: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.age || 0, houseRepairWarranties: {}, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, companyName: CONFIG.economy.startingCompanyName, baseMaintenance: CONFIG.economy.baseMaintenancePerHouse, houseDebt: 0, materialStock: 0, engineerMaterialsUsed: [], collectionStats: { billed: 0, collected: 0, periods: 0 }, houseDeck: [], phase: "preparation", gameSetupVersion: 2, employeeSalaryRulesVersion: 2, ossRulesVersion: 1, houseUnsafeSinceYear: null, houseUnsafeSinceTurn: null, houseUnsafeCategory: null, houseUnsafeReasons: [], unsafeHousePenaltyYear: null, houseRemoved: false, tariffOssResolvedYear: null, tariffOssAttempts: 0, ossHistory: [], ossVoteTurn: null, ossVoteUsedCategories: [], lastOssAnimationId: null, hiresThisTurn: 0, pendingHireIds: [], pendingFireActions: {}, marketRerollUsedTurn: null, lawyerActionTaken: false, lawyerActionsUsed: [], liabilityTimerRulesVersion: 2, requests: [], cancelledRequests: [], houseRequestCounts: {}, penalties: [], compensations: [], employees: [], market: [], log: [], deck: [], yearStats: { capitalStart: CONFIG.economy.startingCapital, ...EMPTY_COUNTS }, totals: { ...EMPTY_COUNTS } };
+  const INITIAL_STATE = { turn: 1, year: 1, managedSinceYear: 1, seasonIndex: 0, seasonTurnIndex: 0, seasonDuration: 1, startingSeasonIndex: 0, badGameMode: false, complaintModifierPercent: 100, founderAccount: 0, directorSalaryPercent: 0, founderLoans: [], badGameResult: "", withheldWages: 0, legalCases: [], capital: CONFIG.economy.startingCapital, reputation: CONFIG.economy.startingReputation, houses: 1, area: CONFIG.economy.startingArea, primaryArea: CONFIG.economy.startingArea, additionalHomes: [], newHouseOssUsedTurn: null, houseName: CONFIG.economy.startingHouseName, houseAddress: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.address || "", houseAge: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.age || 0, houseRepairWarranties: {}, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, companyName: CONFIG.economy.startingCompanyName, baseMaintenance: CONFIG.economy.baseMaintenancePerHouse, houseDebt: 0, materialStock: 0, engineerMaterialsUsed: [], collectionStats: { billed: 0, collected: 0, periods: 0 }, houseDeck: [], phase: "preparation", gameSetupVersion: 2, employeeSalaryRulesVersion: 2, ossRulesVersion: 1, houseUnsafeSinceYear: null, houseUnsafeSinceTurn: null, houseUnsafeCategory: null, houseUnsafeReasons: [], unsafeHousePenaltyYear: null, houseRemoved: false, tariffOssResolvedYear: null, tariffOssAttempts: 0, ossHistory: [], ossVoteTurn: null, ossVoteUsedCategories: [], lastOssAnimationId: null, hiresThisTurn: 0, pendingHireIds: [], pendingFireActions: {}, marketRerollUsedTurn: null, lawyerActionTaken: false, lawyerActionsUsed: [], liabilityTimerRulesVersion: 2, requests: [], cancelledRequests: [], houseRequestCounts: {}, penalties: [], compensations: [], employees: [], market: [], log: [], deck: [], yearStats: { capitalStart: CONFIG.economy.startingCapital, ...EMPTY_COUNTS }, totals: { ...EMPTY_COUNTS } };
   const TARIFF = CONFIG.economy.tariffPerSquareMeter;
   const DEFAULT_COMPANY_NAMES = CONFIG.companyNameDefaults;
   const BANKRUPTCY_THRESHOLD = CONFIG.economy.bankruptcyThreshold;
@@ -229,6 +229,7 @@
     normalized.badGameMode = Boolean(saved.badGameMode);
     normalized.complaintModifierPercent = Number.isFinite(saved.complaintModifierPercent) ? Math.max(0, Math.min(1000, saved.complaintModifierPercent)) : 100;
     normalized.founderAccount = Number.isFinite(saved.founderAccount) ? saved.founderAccount : 0;
+    normalized.directorSalaryPercent = Number.isFinite(saved.directorSalaryPercent) ? Math.max(0, Math.min(50, saved.directorSalaryPercent)) : 0;
     normalized.founderLoans = Array.isArray(saved.founderLoans) ? saved.founderLoans.filter(loan => loan && Number.isFinite(loan.balance) && loan.balance > 0 && Number.isFinite(loan.monthlyPayment) && loan.monthlyPayment > 0).map(loan => ({ ...loan, balance: Math.max(0, loan.balance), monthlyPayment: loan.monthlyPayment, monthlyRate: Number.isFinite(loan.monthlyRate) ? loan.monthlyRate : 0.33 / 12, paymentsRemaining: Number.isInteger(loan.paymentsRemaining) ? Math.max(1, loan.paymentsRemaining) : 12 * Math.max(1, Number(loan.termYears) || 1) })) : [];
     normalized.badGameResult = typeof saved.badGameResult === "string" ? saved.badGameResult : "";
     normalized.withheldWages = Number.isFinite(saved.withheldWages) ? saved.withheldWages : 0;
@@ -408,7 +409,7 @@
     return Math.round(amount * monthlyRate / (1 - Math.pow(1 + monthlyRate, -months)) * 100) / 100;
   }
   function takeFounderLoan() {
-    if (!state.badGameMode || ["preparation", "annualReport", "bankruptcy", "gameOver"].includes(state.phase)) return;
+    if (["preparation", "annualReport", "bankruptcy", "gameOver"].includes(state.phase)) return;
     const amount = Number(document.getElementById("founder-loan-amount")?.value);
     const years = Number(document.getElementById("founder-loan-years")?.value);
     if (!Number.isFinite(amount) || amount < 100 || amount > 1000 || !Number.isInteger(years) || years < 1 || years > 10) return;
@@ -420,7 +421,7 @@
     saveState(); render(); showToast(`Кредит ${money(amount)} ₽ зачислен. Платёж за ход: ${money(payment)} ₽.`);
   }
   function payoffFounderLoan(loanId) {
-    if (!state.badGameMode || ["preparation", "annualReport", "bankruptcy", "gameOver"].includes(state.phase)) return;
+    if (["preparation", "annualReport", "bankruptcy", "gameOver"].includes(state.phase)) return;
     const loan = state.founderLoans.find(item => item.id === loanId);
     if (!loan) return;
     const amount = Math.max(0, Number(loan.balance) || 0);
@@ -434,7 +435,7 @@
     saveState(); render(); showToast(`Кредит досрочно погашен: ${money(amount)} ₽.`);
   }
   function chargeFounderLoanPayments() {
-    if (!state.badGameMode || !state.founderLoans.length) return true;
+    if (!state.founderLoans.length) return true;
     const due = state.founderLoans.reduce((sum, loan) => sum + Math.min(loan.balance * (1 + loan.monthlyRate), loan.paymentsRemaining <= 1 ? loan.balance * (1 + loan.monthlyRate) : loan.monthlyPayment), 0);
     if (state.founderAccount + 0.000001 < due) {
       state.phase = "gameOver";
@@ -828,6 +829,7 @@
   }
 
   function currentTariff(home = null) { const tariff = home?.tariffPerSquareMeter; return Number.isFinite(tariff) ? tariff : Number.isFinite(state.tariffPerSquareMeter) ? state.tariffPerSquareMeter : TARIFF; }
+  function maximumPortfolioCollection() { return managedHomes().reduce((sum, home) => sum + (Number(home.area) || 0) * currentTariff(home), 0); }
 
   function courtDateLabel(turn, year = null, seasonIndex = null, seasonTurnIndex = null) {
     if (!Number.isInteger(turn)) return "Дата не указана";
@@ -919,14 +921,20 @@
     const founderBlock = document.getElementById("founder-account-block");
     const founderValue = document.getElementById("founder-account-value");
     const founderPanel = document.getElementById("founder-panel");
+    const founderTools = founderPanel?.querySelector(".founder-tools");
+    if (founderTools) founderTools.classList.toggle("regular-founder-tools", !state.badGameMode);
     const founderPanelBalance = document.getElementById("founder-panel-balance");
     const withdrawToggle = document.getElementById("withdraw-toggle");
     const founderTransferButton = document.getElementById("founder-transfer-button");
     const buyReputationButton = document.getElementById("buy-reputation-button");
     if (founderBlock) founderBlock.hidden = !state.badGameMode;
     if (founderValue) founderValue.textContent = `${money(state.founderAccount)} ₽`;
-    if (founderPanel) founderPanel.hidden = !state.badGameMode || state.phase === "preparation";
+    if (founderPanel) founderPanel.hidden = state.phase === "preparation";
     if (founderPanelBalance) founderPanelBalance.textContent = `${money(state.founderAccount)} ₽`;
+    const badGameWithdrawTool = document.getElementById("founder-illegal-withdraw-tool");
+    const badGameReputationTool = document.getElementById("founder-reputation-tool");
+    if (badGameWithdrawTool) badGameWithdrawTool.hidden = !state.badGameMode;
+    if (badGameReputationTool) badGameReputationTool.hidden = !state.badGameMode;
     if (withdrawToggle) withdrawToggle.onclick = withdrawFunds;
     if (founderTransferButton) founderTransferButton.onclick = transferFounderFunds;
     if (buyReputationButton) buyReputationButton.onclick = buyReputation;
@@ -949,7 +957,7 @@
       loanAmountSlider.oninput = updateLoanPreview;
       loanYearsSlider.oninput = updateLoanPreview;
     }
-    if (loanButton) { loanButton.onclick = takeFounderLoan; loanButton.disabled = !state.badGameMode || ["preparation", "annualReport", "bankruptcy", "gameOver"].includes(state.phase); }
+    if (loanButton) { loanButton.onclick = takeFounderLoan; loanButton.disabled = ["preparation", "annualReport", "bankruptcy", "gameOver"].includes(state.phase); }
     if (loanStatus) {
       const debt = state.founderLoans.reduce((sum, loan) => sum + loan.balance, 0);
       const payment = state.founderLoans.reduce((sum, loan) => sum + loan.monthlyPayment, 0);
@@ -2399,7 +2407,19 @@
     const reportReputationDelta = reputation.end - reportReputationStart;
     const reputationBlock = `<div class="report-reputation"><div><span>Репутация · с прошлого годового отчёта</span><b>${repText(reportReputationStart)} → ${repText(reputation.end)} · Δ ${repText(reportReputationDelta)}</b></div><ul><li>${reputation.cancellationPenalty ? `−${reputation.cancellationPenalty} за ${cancellationSummary}: ${weightedCancellations} штрафных единиц` : "Нет штрафа за отменённые заявки"}</li><li>${reputation.marketerBonus ? `+${reputation.marketerBonus}: бонусы маркетологов` : "Бонус маркетологов не начислен"}</li><li>${reputation.solvencyBonus ? "+1: год закрыт без долгов" : "Бонус за отсутствие долгов не получен"}</li><li>${reputation.cleanHouseBonus ? "+1: на доме нет отменённых заявок" : "Бонус за отсутствие отмен не получен"}</li><li>${reputation.unsafeHousePenalty ? "−2: аварийный дом изъят из игры" : "Нет штрафа за аварийный дом"}</li><li>${reputation.tariffNoAttemptBonus ? `+${reputation.tariffNoAttemptBonus}: ОСС для повышения тарифа не проводилось` : ""}</li></ul></div>`;
     const noHomesAndNoMarket = state.houses === 0 && availableRealEstateHomes().length === 0;
-    elements.annualReport.innerHTML = `<div class="report-heading"><div><p class="section-label">ИТОГИ ГОДА ${report.year}</p><h2>Годовой отчёт</h2></div><span class="report-stamp">ЗАКРЫТ</span></div>${reputationBlock}<div class="report-columns"><section class="report-column"><h3>За прошедший год</h3><div class="report-money"><div><span>Деньги на начало года</span><b>${money(report.capitalStart)} ₽</b></div><div><span>Деньги на конец года</span><b>${money(report.capitalEnd)} ₽</b></div></div>${counts(report.yearStats)}</section><section class="report-column"><h3>За всё время игры</h3>${counts(report.totals)}</section></div>${maintenanceGrowthBlock}<p class="report-footnote">Отменённые заявки за игру: <b>${state.cancelledRequests.length}</b>. ${state.houses === 0 ? "В управлении пока нет домов; доступные объекты можно посмотреть на рынке недвижимости." : "Все невыполненные заявки автоматически отменены перед отчётом."}</p>${(noHomesAndNoMarket && CONFIG.rules.unsafeHouseEndsGame) ? `<div class="house-removed-notice">В управлении нет домов, и на рынке недвижимости не осталось доступных объектов. Игра завершена.</div>` : `<div class="annual-actions"><section class="house-tariff-oss-list"><h3>ОСС на изменение тарифа по домам</h3>${tariffOss || '<p>Нет домов в управлении.</p>'}</section><button class="primary-button next-year-button" id="next-year-button" type="button"><span>Начать новый год · лето</span><span class="button-arrow">↗</span></button></div>`}`;
+    const maximumDirectorSalary = maximumPortfolioCollection() * 0.5;
+    const directorSalary = maximumPortfolioCollection() * state.directorSalaryPercent / 100;
+    const directorSalaryBlock = `<section class="director-salary-panel"><div><p class="section-label">ВОЗНАГРАЖДЕНИЕ ДИРЕКТОРА</p><h3>Зарплата директора</h3><p>Процент от максимально возможного сбора со всех домов. Сумма будет переводиться на счёт учредителя каждый ход.</p></div><label for="director-salary-slider"><span>Доля максимального сбора: <b id="director-salary-percent">${state.directorSalaryPercent}%</b></span><input id="director-salary-slider" type="range" min="0" max="50" step="1" value="${state.directorSalaryPercent}"><span class="director-salary-values"><span>0% · 0 ₽/ход</span><b>Зарплата: <span id="director-salary-amount">${money(directorSalary)}</span> ₽/ход</b><span>50% · ${money(maximumDirectorSalary)} ₽/ход</span></span></label></section>`;
+    elements.annualReport.innerHTML = `<div class="report-heading"><div><p class="section-label">ИТОГИ ГОДА ${report.year}</p><h2>Годовой отчёт</h2></div><span class="report-stamp">ЗАКРЫТ</span></div>${reputationBlock}<div class="report-columns"><section class="report-column"><h3>За прошедший год</h3><div class="report-money"><div><span>Деньги на начало года</span><b>${money(report.capitalStart)} ₽</b></div><div><span>Деньги на конец года</span><b>${money(report.capitalEnd)} ₽</b></div></div>${counts(report.yearStats)}</section><section class="report-column"><h3>За всё время игры</h3>${counts(report.totals)}</section></div>${maintenanceGrowthBlock}${directorSalaryBlock}<p class="report-footnote">Отменённые заявки за игру: <b>${state.cancelledRequests.length}</b>. ${state.houses === 0 ? "В управлении пока нет домов; доступные объекты можно посмотреть на рынке недвижимости." : "Все невыполненные заявки автоматически отменены перед отчётом."}</p>${(noHomesAndNoMarket && CONFIG.rules.unsafeHouseEndsGame) ? `<div class="house-removed-notice">В управлении нет домов, и на рынке недвижимости не осталось доступных объектов. Игра завершена.</div>` : `<div class="annual-actions"><section class="house-tariff-oss-list"><h3>ОСС на изменение тарифа по домам</h3>${tariffOss || '<p>Нет домов в управлении.</p>'}</section><button class="primary-button next-year-button" id="next-year-button" type="button"><span>Начать новый год · лето</span><span class="button-arrow">↗</span></button></div>`}`;
+    const directorSalarySlider = document.getElementById("director-salary-slider");
+    directorSalarySlider?.addEventListener("input", () => {
+      state.directorSalaryPercent = Math.max(0, Math.min(50, Number(directorSalarySlider.value) || 0));
+      const percentOutput = document.getElementById("director-salary-percent");
+      const amountOutput = document.getElementById("director-salary-amount");
+      if (percentOutput) percentOutput.textContent = `${state.directorSalaryPercent}%`;
+      if (amountOutput) amountOutput.textContent = money(maximumPortfolioCollection() * state.directorSalaryPercent / 100);
+      saveState();
+    });
     document.getElementById("next-year-button")?.addEventListener("click", startNewYear);
     elements.annualReport.querySelectorAll("[data-run-tariff-oss]").forEach(button => button.addEventListener("click", () => runTariffOss(button.dataset.runTariffOss)));
     elements.annualReport.querySelectorAll("[data-skip-tariff-oss]").forEach(button => button.addEventListener("click", () => skipTariffOss(button.dataset.skipTariffOss)));
@@ -2673,7 +2693,7 @@
   }
 
   function transferFounderFunds() {
-    if (!state.badGameMode || ["gameOver", "annualReport", "bankruptcy"].includes(state.phase)) return;
+    if (["gameOver", "annualReport", "bankruptcy"].includes(state.phase)) return;
     const input = document.getElementById("founder-transfer-amount");
     const amount = Number(input?.value);
     if (!Number.isFinite(amount) || amount <= 0 || state.founderAccount < amount) { showToast(`На счёте учредителя недостаточно средств. Доступно ${money(state.founderAccount)} ₽.`); return; }
@@ -3423,6 +3443,12 @@
     const collectionRate = grossCharge > 0 ? Math.round(income / grossCharge * 100) : 0;
     houseResults.forEach(({ home, rate }) => seasonLog.push(`Итоговая собираемость дома «${home.name}»: ${rate}%.`));
     if (!changeCapital(income, "сбор платежей")) return;
+    const directorSalary = Math.round(maximumPortfolioCollection() * state.directorSalaryPercent) / 100;
+    if (directorSalary > 0) {
+      changeCapital(-directorSalary, "зарплата директора");
+      state.founderAccount = Math.round((state.founderAccount + directorSalary) * 100) / 100;
+      seasonLog.push(`Зарплата директора (${state.directorSalaryPercent}% от максимально возможного сбора): −${money(directorSalary)} ₽ из бюджета, +${money(directorSalary)} ₽ на счёт учредителя.`);
+    }
     houseResults.forEach(({ home, rate, billed, collected, unpaid }) => {
       const stats = { billed: home.collectionStats?.billed || 0, collected: home.collectionStats?.collected || 0, periods: home.collectionStats?.periods || 0 };
       stats.billed += billed; stats.collected += collected; stats.periods += 1;
@@ -3448,9 +3474,10 @@
     state.financialHistory.push({ year: state.year, seasonIndex: state.seasonIndex, seasonTurnIndex: state.seasonTurnIndex, ...state.lastSeasonFinancials, capital: state.capital, collectionRate, reputation: state.reputation });
     state.seasonFinancials = { upkeep: 0, salaries: 0, paidIncome: 0, problemRepairs: 0, contractors: 0, materials: 0 };
     seasonLog.push(`Собрано платежей: +${money(income)} ₽.`);
+    checkBankruptcy();
     if (state.phase === "bankruptcy") {
       addLogSequence(seasonLog);
-      saveState(); render(); showToast(`После автоматического взыскания по суду баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Необходимо объявить банкротство.`);
+      saveState(); render(); showToast(`После расчёта финансов за ход баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Необходимо объявить банкротство.`);
       return;
     }
     const expiredUnsafeHomes = seasonWillEnd ? state.additionalHomes.filter(home => home.unsafeSinceTurn != null && state.turn - home.unsafeSinceTurn >= CONFIG.rules.unsafeHouseGraceSeasons * state.seasonDuration).map(home => home.name) : [];

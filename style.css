@@ -917,6 +917,8 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .founder-panel-balance { color:#68705e; font-size:10px; }
 .founder-panel-balance b { color:#315c43; font:800 15px Manrope,sans-serif; }
 .founder-tools { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.founder-tool[hidden] { display:none !important; }
+.founder-tools.regular-founder-tools { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .founder-tool,.founder-tools .founder-loan-panel { display:grid; align-content:start; gap:6px; min-width:0; padding:10px; border:1px solid #e7eadd; border-radius:6px; background:#fffefa; }
 .founder-tool h3,.founder-tools .founder-loan-panel>strong { margin:0; color:#425d3e; font:700 11px Manrope,sans-serif; }
 .founder-tool p,.founder-tool small { margin:0; color:#756d5d; font-size:9px; line-height:1.4; }
@@ -939,3 +941,13 @@ button:focus-visible,a:focus-visible { outline: 3px solid #adc75f; outline-offse
 .report-maintenance-growth>div b { color:#354638; white-space:nowrap; }
 .report-maintenance-growth>div i { color:#71834f; font-size:9px; font-style:normal; }
 .report-maintenance-growth p { margin:0; color:#898b80; font-size:9px; }
+.director-salary-panel { display:grid; grid-template-columns:minmax(190px,.8fr) minmax(260px,1.2fr); gap:14px; align-items:center; margin-top:10px; padding:12px; border:1px solid #e6e8d9; border-radius:6px; background:#fffefa; }
+.director-salary-panel h3 { margin:0 0 5px; color:#41533e; font:700 12px "Manrope",sans-serif; }
+.director-salary-panel p:not(.section-label) { margin:0; color:#82867a; font-size:9px; line-height:1.45; }
+.director-salary-panel .section-label { margin:0 0 4px; }
+.director-salary-panel label { display:grid; gap:7px; color:#73796c; font-size:9px; }
+.director-salary-panel label>span:first-child { font-weight:600; }
+.director-salary-panel input[type="range"] { width:100%; accent-color:#66824a; }
+.director-salary-values { display:flex; justify-content:space-between; align-items:center; gap:8px; color:#898b80; font-size:8px; }
+.director-salary-values b { color:#354638; font-size:9px; white-space:nowrap; }
+@media(max-width:600px) { .director-salary-panel { grid-template-columns:1fr; gap:10px; }.director-salary-values { flex-wrap:wrap; } }

@@ -8,7 +8,7 @@
   const HOUSE_PROBLEMS = CONFIG.houseProblems;
   const EMPTY_COUNTS = { accepted: 0, completed: 0, cancelled: 0, hired: 0, fired: 0 };
   const HOUSE_CARDS = CONFIG.houses;
-  const INITIAL_STATE = { turn: 1, year: 1, managedSinceYear: 1, seasonIndex: 0, seasonTurnIndex: 0, seasonDuration: 1, startingSeasonIndex: 0, badGameMode: false, complaintModifierPercent: 100, founderAccount: 0, directorSalaryPercent: 0, founderLoans: [], badGameResult: "", withheldWages: 0, legalCases: [], capital: CONFIG.economy.startingCapital, reputation: CONFIG.economy.startingReputation, houses: 1, area: CONFIG.economy.startingArea, primaryArea: CONFIG.economy.startingArea, additionalHomes: [], newHouseOssUsedTurn: null, houseName: CONFIG.economy.startingHouseName, houseAddress: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.address || "", houseAge: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.age || 0, houseRepairWarranties: {}, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, companyName: CONFIG.economy.startingCompanyName, baseMaintenance: CONFIG.economy.baseMaintenancePerHouse, houseDebt: 0, materialStock: 0, engineerMaterialsUsed: [], collectionStats: { billed: 0, collected: 0, periods: 0 }, houseDeck: [], phase: "preparation", gameSetupVersion: 2, employeeSalaryRulesVersion: 2, ossRulesVersion: 1, houseUnsafeSinceYear: null, houseUnsafeSinceTurn: null, houseUnsafeCategory: null, houseUnsafeReasons: [], unsafeHousePenaltyYear: null, houseRemoved: false, tariffOssResolvedYear: null, tariffOssAttempts: 0, ossHistory: [], ossVoteTurn: null, ossVoteUsedCategories: [], lastOssAnimationId: null, hiresThisTurn: 0, pendingHireIds: [], pendingFireActions: {}, marketRerollUsedTurn: null, lawyerActionTaken: false, lawyerActionsUsed: [], liabilityTimerRulesVersion: 2, requests: [], cancelledRequests: [], houseRequestCounts: {}, penalties: [], compensations: [], employees: [], market: [], log: [], deck: [], yearStats: { capitalStart: CONFIG.economy.startingCapital, ...EMPTY_COUNTS }, totals: { ...EMPTY_COUNTS } };
+  const INITIAL_STATE = { turn: 1, year: 1, managedSinceYear: 1, seasonIndex: 0, seasonTurnIndex: 0, seasonDuration: 1, startingSeasonIndex: 0, badGameMode: false, complaintModifierPercent: 100, founderAccount: 0, directorSalaryPercent: 0, founderLoans: [], badGameResult: "", withheldWages: 0, legalCases: [], capital: CONFIG.economy.startingCapital, reputation: Math.max(-50, Math.min(50, CONFIG.economy.startingReputation)), houses: 1, area: CONFIG.economy.startingArea, primaryArea: CONFIG.economy.startingArea, additionalHomes: [], newHouseOssUsedTurn: null, houseName: CONFIG.economy.startingHouseName, houseAddress: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.address || "", houseAge: CONFIG.houses.find(house => house.name === CONFIG.economy.startingHouseName)?.age || 0, houseRepairWarranties: {}, tariffPerSquareMeter: CONFIG.economy.tariffPerSquareMeter, companyName: CONFIG.economy.startingCompanyName, baseMaintenance: CONFIG.economy.baseMaintenancePerHouse, houseDebt: 0, materialStock: 0, engineerMaterialsUsed: [], collectionStats: { billed: 0, collected: 0, periods: 0 }, houseCollectionHistory: {}, houseDeck: [], phase: "preparation", gameSetupVersion: 2, employeeSalaryRulesVersion: 2, ossRulesVersion: 1, houseUnsafeSinceYear: null, houseUnsafeSinceTurn: null, houseUnsafeCategory: null, houseUnsafeReasons: [], unsafeHousePenaltyYear: null, houseRemoved: false, tariffOssResolvedYear: null, tariffOssAttempts: 0, ossHistory: [], ossVoteTurn: null, ossVoteUsedCategories: [], lastOssAnimationId: null, hiresThisTurn: 0, pendingHireIds: [], pendingFireActions: {}, marketRerollUsedTurn: null, lawyerActionTaken: false, lawyerActionsUsed: [], liabilityTimerRulesVersion: 2, requests: [], cancelledRequests: [], houseRequestCounts: {}, penalties: [], compensations: [], employees: [], market: [], log: [], deck: [], yearStats: { capitalStart: CONFIG.economy.startingCapital, ...EMPTY_COUNTS }, totals: { ...EMPTY_COUNTS } };
   const TARIFF = CONFIG.economy.tariffPerSquareMeter;
   const DEFAULT_COMPANY_NAMES = CONFIG.companyNameDefaults;
   const BANKRUPTCY_THRESHOLD = CONFIG.economy.bankruptcyThreshold;
@@ -113,6 +113,7 @@
       mobileMovePanel(elements.marketPanel);
       const marketDisclosure = document.getElementById("market-disclosure");
       const teamDisclosure = document.getElementById("team-disclosure");
+      if (phase === "staffing" && !mobileManagerConfirmed) mobileMovePanel(teamDisclosure);
       if (tabs) tabs.hidden = phase === "preparation" || (phase === "staffing" && mobileManagerConfirmed);
       if (phase === "preparation") {
         document.body.classList.add("mobile-show-market");
@@ -206,12 +207,14 @@
     normalized.capital = Number.isFinite(saved.capital) ? saved.capital : INITIAL_STATE.capital;
     normalized.materialStock = Number.isFinite(saved.materialStock) ? Math.max(0, saved.materialStock) : 0;
     normalized.engineerMaterialsUsed = Array.isArray(saved.engineerMaterialsUsed) ? saved.engineerMaterialsUsed : [];
+    normalized.houseCollectionHistory = saved.houseCollectionHistory && typeof saved.houseCollectionHistory === "object" ? saved.houseCollectionHistory : {};
+    Object.entries(normalized.houseCollectionHistory).forEach(([name, records]) => { normalized.houseCollectionHistory[name] = (Array.isArray(records) ? records : []).filter(record => record && Number.isInteger(record.year) && Number.isInteger(record.seasonIndex) && Number.isInteger(record.seasonTurnIndex) && Number.isFinite(record.naturalRate)).map(record => ({ ...record, naturalRate: Math.max(CONFIG.economy.collectionMinPercent, Math.min(CONFIG.economy.collectionMaxPercent, record.naturalRate)), rate: Number.isFinite(record.rate) ? Math.max(CONFIG.economy.collectionMinPercent, Math.min(CONFIG.economy.collectionMaxPercent, record.rate)) : record.naturalRate })); });
     normalized.additionalHomes = Array.isArray(saved.additionalHomes) ? saved.additionalHomes.filter(house => house && typeof house.name === "string" && Number.isFinite(house.area)).map(house => ({ ...house, age: Number.isFinite(house.age) ? house.age : 0, managedSinceYear: Number.isInteger(house.managedSinceYear) ? house.managedSinceYear : normalized.year, address: house.address || "Адрес не указан", baseMaintenance: Number.isFinite(house.baseMaintenance) ? house.baseMaintenance : CONFIG.economy.baseMaintenancePerHouse, tariffPerSquareMeter: Number.isFinite(house.tariffPerSquareMeter) ? house.tariffPerSquareMeter : (Number.isFinite(saved.tariffPerSquareMeter) ? saved.tariffPerSquareMeter : CONFIG.economy.tariffPerSquareMeter), debtRecoverable: Number.isFinite(house.debtRecoverable) ? house.debtRecoverable : 0, debtIrrecoverable: Number.isFinite(house.debtIrrecoverable) ? house.debtIrrecoverable : 0, collectionStats: { billed: 0, collected: 0, periods: 0, ...(house.collectionStats || {}) }, lastCollectionRate: Number.isFinite(house.lastCollectionRate) ? house.lastCollectionRate : null, tariffOssResolvedYear: Number.isInteger(house.tariffOssResolvedYear) ? house.tariffOssResolvedYear : null, repairWarranties: house.repairWarranties || {}, warrantyUntilTurn: Number.isInteger(house.warrantyUntilTurn) ? house.warrantyUntilTurn : null })) : [];
     normalized.primaryArea = Number.isFinite(saved.primaryArea) && saved.primaryArea > 0 ? saved.primaryArea : Number.isFinite(saved.area) && saved.area > 0 ? saved.area : INITIAL_STATE.primaryArea;
     normalized.houses = (saved.houseRemoved ? 0 : 1) + normalized.additionalHomes.length;
     normalized.area = (saved.houseRemoved ? 0 : normalized.primaryArea) + normalized.additionalHomes.reduce((sum, house) => sum + house.area, 0);
     normalized.newHouseOssUsedTurn = Number.isInteger(saved.newHouseOssUsedTurn) ? saved.newHouseOssUsedTurn : (saved.newHouseOssUsed ? normalized.turn : null);
-    normalized.reputation = Number.isFinite(saved.reputation) ? saved.reputation : INITIAL_STATE.reputation;
+    normalized.reputation = Math.max(-50, Math.min(50, Number.isFinite(saved.reputation) ? saved.reputation : INITIAL_STATE.reputation));
     normalized.year = Number.isInteger(saved.year) ? saved.year : Math.floor((normalized.turn - 1) / SEASONS.length) + 1;
     normalized.managedSinceYear = Number.isInteger(saved.managedSinceYear) ? saved.managedSinceYear : 1;
     normalized.tariffOssResolvedYear = Number.isInteger(saved.tariffOssResolvedYear) ? saved.tariffOssResolvedYear : null;
@@ -306,7 +309,7 @@
       const rosterProfile = EMPLOYEE_ROSTER.find(person => person.role === employee.role && person.name === employee.name);
       const legalStrength = employee.role === "lawyer" ? Math.max(1, Math.min(3, Number.isInteger(employee.legalStrength) ? employee.legalStrength : 1)) : employee.legalStrength;
       const legacyLoyalty = { satisfied: 3, normal: 0, dissatisfied: -4, veryDissatisfied: -8 }[employee.mood] ?? (employee.unhappy || employee.unhappyNextTurn ? -4 : 0);
-      return { ...rosterProfile, ...employee, legalStrength, salary: migrateEmployeeSalaries && rosterProfile && Number.isFinite(employee.salary) && role.salary ? employee.salary / role.salary * (employee.role === "lawyer" ? lawyerSalary(legalStrength) : rosterProfile.salary) : Number.isFinite(employee.salary) ? employee.salary : employee.role === "lawyer" ? lawyerSalary(legalStrength) : role.salary, bonus: employee.bonus || rosterProfile?.bonus, bonusDescription: rosterProfile?.bonusDescription || employee.bonusDescription, productivity: Number.isFinite(employee.productivity) ? employee.productivity : role.productivity, age: Number.isInteger(employee.age) ? Math.max(20, Math.min(60, employee.age)) : 20 + Math.floor(Math.random() * 41), loyalty: Number.isInteger(employee.loyalty) ? Math.max(-10, Math.min(5, employee.loyalty)) : legacyLoyalty, loyaltyQuietStreak: Number.isInteger(employee.loyaltyQuietStreak) ? employee.loyaltyQuietStreak : 0, probationTurns: Number.isInteger(employee.probationTurns) ? employee.probationTurns : 0, assignedLabor: Number.isFinite(employee.assignedLabor) ? employee.assignedLabor : (employee.usedThisTurn ? 1 : 0), mood: employee.mood || "normal", fullSalaryStreak: Number.isInteger(employee.fullSalaryStreak) ? employee.fullSalaryStreak : 0, noWithholdPayStreak: Number.isInteger(employee.noWithholdPayStreak) ? employee.noWithholdPayStreak : 0, noPremiumPayStreak: Number.isInteger(employee.noPremiumPayStreak) ? employee.noPremiumPayStreak : 0, withholdPercent: Number.isFinite(employee.withholdPercent) ? Math.max(-50, Math.min(50, employee.withholdPercent)) : 0, withheldAmount: Number.isFinite(employee.withheldAmount) ? employee.withheldAmount : 0, unpaidOvertime: Boolean(employee.unpaidOvertime), deceased: Boolean(employee.deceased) };
+      return { ...rosterProfile, ...employee, legalStrength, salary: migrateEmployeeSalaries && rosterProfile && Number.isFinite(employee.salary) && role.salary ? employee.salary / role.salary * (employee.role === "lawyer" ? lawyerSalary(legalStrength) : rosterProfile.salary) : Number.isFinite(employee.salary) ? employee.salary : employee.role === "lawyer" ? lawyerSalary(legalStrength) : role.salary, bonus: employee.bonus || rosterProfile?.bonus, bonusDescription: rosterProfile?.bonusDescription || employee.bonusDescription, productivity: Number.isFinite(employee.productivity) ? employee.productivity : role.productivity, age: Number.isInteger(employee.age) ? Math.max(20, Math.min(60, employee.age)) : 20 + Math.floor(Math.random() * 41), loyalty: Number.isInteger(employee.loyalty) ? Math.max(-10, Math.min(5, employee.loyalty)) : legacyLoyalty, loyaltyQuietStreak: Number.isInteger(employee.loyaltyQuietStreak) ? employee.loyaltyQuietStreak : 0, probationTurns: Number.isInteger(employee.probationTurns) ? employee.probationTurns : 0, assignedLabor: Number.isFinite(employee.assignedLabor) ? employee.assignedLabor : (employee.usedThisTurn ? 1 : 0), mood: employee.mood || "normal", fullSalaryStreak: Number.isInteger(employee.fullSalaryStreak) ? employee.fullSalaryStreak : 0, noWithholdPayStreak: Number.isInteger(employee.noWithholdPayStreak) ? employee.noWithholdPayStreak : 0, noPremiumPayStreak: Number.isInteger(employee.noPremiumPayStreak) ? employee.noPremiumPayStreak : 0, withholdPercent: Number.isFinite(employee.withholdPercent) ? Math.max(-50, Math.min(50, employee.withholdPercent)) : 0, withheldAmount: Number.isFinite(employee.withheldAmount) ? employee.withheldAmount : 0, loyaltyAdjustmentBalance: Number.isFinite(employee.loyaltyAdjustmentBalance) ? employee.loyaltyAdjustmentBalance : 0, unpaidOvertime: Boolean(employee.unpaidOvertime), deceased: Boolean(employee.deceased) };
     }) : [];
     normalized.employees.forEach(employee => {
       employee.withholdPercent = Number.isFinite(employee.withholdPercent) ? Math.max(-50, Math.min(50, employee.withholdPercent)) : 0;
@@ -455,6 +458,7 @@
     return true;
   }
   function quantity(value) { return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(value); }
+  function countNoun(value, forms) { const mod100 = Math.abs(value) % 100, mod10 = mod100 % 10; return mod100 >= 11 && mod100 <= 14 ? forms[2] : mod10 === 1 ? forms[0] : mod10 >= 2 && mod10 <= 4 ? forms[1] : forms[2]; }
   function changeCapital(delta, operation) {
     if (!Number.isFinite(delta) || !Number.isFinite(state.capital + delta)) {
       addLog(`Операция «${operation}» отменена: обнаружена некорректная денежная сумма.`);
@@ -471,8 +475,10 @@
     return requestContractorWorkCost(card) + requestMaterialPurchaseCost(card);
   }
   function requestContractorWorkCost(card) {
-    const specialist = Object.values(ROLES).find(role => role.category === card.category);
-    return (specialist?.salary || ROLES.handyman.salary) + CONFIG.economy.contractorMarkup;
+    const rateByCategory = { "Сантехника": 20 / 3, "Электрика": 15 / 3, "Общестрой": 20 / 4, "Уборка": 15 / 5 };
+    const labor = Math.max(0, Number(card?.labor) || 0);
+    const rate = rateByCategory[card?.category] ?? (ROLES.handyman.salary / ROLES.handyman.productivity);
+    return Math.round((labor * rate + CONFIG.economy.contractorMarkup) * 100) / 100;
   }
   function requestMaterialUnits(card) { return card.type === "paid" ? 0 : Math.min(MAX_REQUEST_MATERIAL_UNITS, Math.max(0, Math.floor(Number.isFinite(card.materialCost) ? card.materialCost : 0))); }
   function materialUnitCost(discounted = false) { const base = Math.max(0.01, Number(CONFIG.economy.materialCostPerUnit) || 1); return discounted ? Math.max(0.01, base * (1 - Math.min(100, employeeBonusCount("engineer", "discountProblemMaterials") * CONFIG.rules.engineerMaterialDiscountPercent) / 100)) : base; }
@@ -592,11 +598,11 @@
   function lowReputationDepartureChance(employee) {
     if (state.reputation >= 0) return 0;
     const loyalty = loyaltyOf(employee), reputation = Math.abs(state.reputation);
-    const modifier = loyalty >= 2 ? -50 : loyalty >= -2 ? -10 : loyalty >= -6 ? 0 : 10;
+    const modifier = loyalty >= 2 ? -50 : loyalty >= -2 ? -10 : loyalty >= -6 ? 0 : 5;
     return boundedProbability(reputation + modifier);
   }
-  function outsideOfferChance(employee) { return boundedProbability(averageWithholdingPercent() + (loyaltyOf(employee) >= 2 ? 0 : 10)); }
-  function moodTurnoverChance(employee) { return boundedProbability(Math.max(0, -loyaltyOf(employee))); }
+  function outsideOfferChance(employee) { return boundedProbability(averageWithholdingPercent() + (loyaltyOf(employee) >= 2 ? 0 : 2)); }
+  function moodTurnoverChance(employee) { return boundedProbability(Math.max(0, -loyaltyOf(employee)) / 3); }
   function moodComplaintChance(employee) { const loyalty = loyaltyOf(employee); return boundedProbability((loyalty <= -7 ? 20 : loyalty <= -3 ? 10 : 0) + averageWithholdingPercent()); }
   function neutralLoyaltyRecovery(employee) {
     const value = loyaltyOf(employee);
@@ -849,7 +855,30 @@
     return `${SEASONS[targetSeason]} · год ${targetYear} · ход ${turnOfSeason}`;
   }
 
+  function arrangeDashboardPanels() {
+    const timeline = document.querySelector(".timeline-panel");
+    const timelineSlot = document.getElementById("timeline-slot");
+    const turnLayout = document.querySelector(".turn-layout");
+    const turnSlot = document.getElementById("turn-structure-slot");
+    const marketSlot = document.getElementById("agenda-market-slot");
+    const teamPanel = document.getElementById("team-panel");
+    const teamDisclosure = document.getElementById("team-disclosure");
+    const organization = document.getElementById("organization-disclosure");
+    if (timelineSlot && organization && timelineSlot.parentElement === organization.parentElement && timelineSlot.nextElementSibling !== organization) organization.parentElement.insertBefore(timelineSlot, organization);
+    if (timeline && timelineSlot && timeline.parentElement !== timelineSlot) timelineSlot.append(timeline);
+    if (turnLayout && turnSlot && turnLayout.parentElement !== turnSlot) turnSlot.append(turnLayout);
+    if (marketSlot && elements.marketPanel && elements.marketPanel.parentElement !== marketSlot) marketSlot.append(elements.marketPanel);
+    if (teamPanel && teamDisclosure && teamDisclosure.parentElement !== teamPanel) teamPanel.append(teamDisclosure);
+    if (turnLayout) {
+      const actions = turnLayout.querySelector(".actions-panel");
+      const agenda = turnLayout.querySelector(".requests-panel");
+      if (actions && agenda && actions.nextElementSibling !== agenda) turnLayout.insertBefore(actions, agenda);
+    }
+  }
+
   function render() {
+    arrangeDashboardPanels();
+    ensureProblemProjects();
     refreshPortfolioTotals();
     const homes = managedHomes();
     const baseIncome = homes.reduce((sum, home) => sum + home.area * currentTariff(home), 0);
@@ -857,7 +886,7 @@
     const unresolved = state.requests.filter(card => !card.resolved && !card.cancelled);
     const newRequests = state.requests.filter(card => card.receivedTurn === state.turn).length;
     const carried = unresolved.filter(card => card.receivedTurn !== state.turn).length;
-    elements.turn.textContent = state.phase === "annualReport" ? `ОТЧЁТ · ${state.year} ГОД` : `${SEASONS[state.seasonIndex]} · ГОД ${state.year}`;
+    if (elements.turn) elements.turn.textContent = state.phase === "annualReport" ? `ОТЧЁТ · ${state.year} ГОД` : `${SEASONS[state.seasonIndex]} · ГОД ${state.year}`;
     elements.round.textContent = state.phase === "annualReport" ? "Год завершён" : `${state.seasonIndex + 1}/4 · ход ${state.seasonTurnIndex + 1}/${state.seasonDuration}`;
     elements.timelineYear.textContent = `Год ${state.year}`;
     elements.seasonTrack.innerHTML = SEASONS.map((season, index) => `<div class="season-node ${index < state.seasonIndex || state.phase === "annualReport" ? "season-done" : ""} ${index === state.seasonIndex && state.phase !== "annualReport" ? "season-current" : ""}"><span class="season-icon">${SEASON_ICONS[index]}</span><span>${season}</span><i></i></div>`).join("");
@@ -891,7 +920,9 @@
     if (startingSeasonSelect) { startingSeasonSelect.value = String(state.startingSeasonIndex); startingSeasonSelect.onchange = () => { if (state.phase === "preparation") { state.startingSeasonIndex = Number(startingSeasonSelect.value); saveState(); } }; }
     if (seasonDurationSelect) { seasonDurationSelect.value = String(state.seasonDuration); seasonDurationSelect.onchange = () => { if (state.phase === "preparation") { state.seasonDuration = Math.max(1, Math.min(3, Number(seasonDurationSelect.value) || 1)); saveState(); render(); } }; }
     if (badGameCheckbox) { badGameCheckbox.checked = state.badGameMode; badGameCheckbox.onchange = () => { if (state.phase === "preparation") { state.badGameMode = badGameCheckbox.checked; saveState(); render(); } }; }
-    if (elements.marketPanel) elements.marketPanel.classList.toggle("preparing", state.phase === "preparation");
+    if (elements.marketPanel) { elements.marketPanel.classList.toggle("preparing", state.phase === "preparation"); elements.marketPanel.hidden = !["preparation", "staffing"].includes(state.phase); }
+    const teamPanel = document.getElementById("team-panel");
+    if (teamPanel) teamPanel.hidden = state.phase === "preparation";
     if (elements.prepPanel) elements.prepPanel.hidden = state.phase !== "preparation";
     const phaseNames = { preparation: "Подготовка к игре", staffing: "Менеджмент сотрудников", inspection: `Сезонный осмотр · ${SEASONS[state.seasonIndex]}`, problems: "Решение проблем", drawing: "Приём заявок", resolving: "Распределение заявок", legal: "Задачи специалистам", payroll: "Выплата зарплат", collection: "Сбор содержания", annualReport: "Годовой отчёт", bankruptcy: "Объявление банкротства", gameOver: "Игра окончена" };
     elements.phaseLabel.textContent = phaseNames[state.phase];
@@ -1004,6 +1035,12 @@
     elements.reputation.classList.toggle("negative", state.reputation < 0);
     elements.capitalFill.style.width = `${Math.max(0, Math.min(CONFIG.economy.capitalBarFillMaxPercent, state.capital / CONFIG.economy.capitalBarScale * 100))}%`;
     elements.houses.innerHTML = `${state.houses} <span>${state.houses === 1 ? "дом" : "дома"}</span>`;
+    const stickyReputation = document.getElementById("sticky-reputation-value");
+    if (stickyReputation) {
+      stickyReputation.textContent = `${state.reputation > 0 ? "+" : ""}${state.reputation}`;
+      stickyReputation.classList.toggle("negative", state.reputation < 0);
+      stickyReputation.classList.toggle("positive", state.reputation > 0);
+    }
     elements.area.innerHTML = `${quantity(state.area)} <span>м²</span>`;
     const portfolioTariff = document.getElementById("portfolio-tariff-value");
     const averageTariff = state.area > 0 ? baseIncome / state.area : currentTariff();
@@ -1038,21 +1075,20 @@
       const showRequiredExpenses = state.phase === "problems" || state.phase === "resolving";
       requiredExpenses.hidden = !showRequiredExpenses;
       if (showRequiredExpenses && state.phase === "problems") {
-        const remainingMaterialUnits = state.houseProblems.reduce((sum, problem) => problem.materialPurchased || Number.isFinite(problem.materialCostPaid) ? sum : sum + problemRequirements(problem).materials, 0);
+        const projects = problemProjects();
+        const remainingMaterialUnits = projects.reduce((sum, project) => sum + problemProjectMaterialUnits(project), 0);
         const materialTotal = materialShortage(remainingMaterialUnits) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-        const contractorTotal = state.houseProblems.reduce((sum, problem) => sum + remainingProblemContractorWork(problem), 0);
+        const contractorTotal = projects.reduce((sum, project) => sum + problemProjectContractorPrice(project), 0);
         requiredExpenses.innerHTML = `<div><span>Требуется материалов</span><b>${quantity(remainingMaterialUnits)} шт.</b></div><div><span>Расходы на материалы</span><b>${money(materialTotal)} ₽</b></div><div><span>Расходы на подрядчика</span><b>${money(contractorTotal)} ₽</b></div>`;
       } else if (showRequiredExpenses) {
         const pendingRequests = unresolved;
         const materialUnits = pendingRequests.reduce((sum, card) => sum + requestMaterialUnits(card), 0);
         const materialTotal = materialShortage(materialUnits) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-        const contractorTotal = pendingRequests.reduce((sum, card) => {
-          const specialist = Object.values(ROLES).find(role => role.category === card.category);
-          return sum + (specialist?.salary || ROLES.handyman.salary) + CONFIG.economy.contractorMarkup;
-        }, 0);
+        const contractorTotal = pendingRequests.reduce((sum, card) => sum + requestContractorWorkCost(card), 0);
         requiredExpenses.innerHTML = `<div><span>Требуется материалов</span><b>${quantity(materialUnits)} шт.</b></div><div><span>Расходы на материалы</span><b>${money(materialTotal)} ₽</b></div><div><span>Расходы на подрядчика</span><b>${money(contractorTotal)} ₽</b></div>`;
       }
     }
+    renderPhaseContext();
     elements.hint.textContent = state.phase === "staffing" ? "Сначала найми или уволь сотрудников" : state.phase === "inspection" ? "Проведи сезонный осмотр дома" : state.phase === "problems" ? "При желании вызови подрядчика для ремонта проблем" : state.phase === "drawing" ? "Прими новые заявки, чтобы продолжить ход" : state.phase === "legal" ? "Юристы выбирают поручения, инженеры могут купить материалы" : state.phase === "payroll" ? "Выплати зарплаты перед сбором содержания" : state.phase === "collection" ? "Собери содержание и заверши сезон" : unresolved.length ? "Решай заявки специалистами или деньгами" : "Все заявки этого хода решены";
     elements.draw.hidden = true;
     elements.end.hidden = ["preparation", "bankruptcy", "annualReport", "gameOver"].includes(state.phase);
@@ -1063,6 +1099,14 @@
     }
     elements.end.disabled = !["staffing", "inspection", "problems", "drawing", "resolving", "legal", "payroll", "collection"].includes(state.phase);
     elements.end.querySelector("span:first-child").textContent = phaseActionLabel();
+    const agendaNextStage = document.getElementById("agenda-next-stage-button");
+    if (agendaNextStage) {
+      agendaNextStage.hidden = elements.end.hidden;
+      agendaNextStage.disabled = elements.end.disabled;
+      agendaNextStage.querySelector("span:first-child").textContent = elements.end.querySelector("span:first-child").textContent;
+      agendaNextStage.querySelector("span:last-child").textContent = elements.end.querySelector("span:last-child").textContent;
+      agendaNextStage.onclick = () => elements.end.click();
+    }
     elements.title.textContent = state.phase === "gameOver" ? "Игра окончена" : state.phase === "preparation" ? "Создай свою управляющую компанию" : state.phase === "bankruptcy" ? "Нужна новая управляющая компания" : state.phase === "annualReport" ? "Год завершён" : state.phase === "legal" ? "Реши, что делают специалисты" : state.phase === "staffing" ? "Собери команду" : state.phase === "inspection" ? "Проведи сезонный осмотр" : state.phase === "problems" ? "Реши, что делать с проблемами дома" : state.phase === "drawing" ? "Прими заявки" : state.phase === "payroll" ? "Выплати зарплаты" : state.phase === "collection" ? "Собери содержание" : unresolved.length ? "Разбираем заявки" : "Заявки решены";
     elements.copy.textContent = state.phase === "gameOver" ? state.badGameResult || "Игра окончена" : state.phase === "bankruptcy" ? `Баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Текущая компания не может продолжать работу.` : state.phase === "annualReport" ? "Просмотри результаты года. Перед отчётом все невыполненные заявки, включая аварийные, автоматически отменяются; каждые 5 штрафных единиц отмен снижают репутацию на 1." : state.phase === "legal" ? "Юристы выполняют поручения, инженеры могут закупить материалы по себестоимости." : state.phase === "staffing" ? "Добавляй сотрудников в кадровый пул или отмечай увольнение. Изменения применятся при переходе дальше; до этого их можно отменить." : state.phase === "inspection" ? "Осмотр проводится осенью и весной; инженер уменьшает число выявленных проблем на одну." : state.phase === "problems" ? "Подрядчик может устранить проблему целиком. Если оставить её, она создаст сезонные заявки." : state.phase === "drawing" ? "Кадровые изменения применены. Теперь открой заявки жильцов." : state.phase === "payroll" ? "Зарплаты рассчитаны по составу команды и испытательным срокам." : state.phase === "collection" ? "Оплатится базовое обслуживание и случайно определится собираемость." : unresolved.length ? "Распределяй заявки в пределах продуктивности или назначай переработку за премию. Любую заявку можно оплатить." : "Переходи к выплате зарплат.";
     elements.staffCount.textContent = `${state.employees.length} В ШТАТЕ`;
@@ -1134,7 +1178,7 @@
       const caseId = `fraud-${state.turn}-${Date.now()}`;
       state.legalCases.push({ id: caseId, caseType: "forgedHouse", houseName: house.name, houseAddress: house.address, status: "trial", filedTurn: state.turn, filedYear: state.year, filedSeasonIndex: state.seasonIndex, filedSeasonTurnIndex: state.seasonTurnIndex, deadlineTurn: state.turn + SEASONS.length, delayCount: 0, lastDelayTurn: null, lastWinAttemptTurn: null });
       const filingReputationPenalty = CONFIG.rules.badGameForgeryFilingReputationPenalty ?? 2;
-      state.reputation -= filingReputationPenalty;
+      changeReputation(-filingReputationPenalty);
       addLog(`Собственники дома «${house.name}» (${house.address}) подали в суд (шанс ${Math.round(lawsuitChance * 100)}%). Дело добавлено в «Суды и обязательства». Репутация −${filingReputationPenalty}.`);
       showToast(`Дом получен, но собственники подали в суд.`);
     } else showToast(`Дом «${house.name}» получен в управление.`);
@@ -1193,7 +1237,8 @@
       const overallWear = Math.round(Object.values(wearByCategory).reduce((sum, wear) => sum + wear, 0) / HOUSE_PROBLEMS.length);
       const problems = HOUSE_PROBLEMS.filter(definition => wearByCategory[definition.category] > 0).sort((a, b) => wearByCategory[b.category] - wearByCategory[a.category]).map(definition => {
         const categoryProblems = homeProblems.filter(problem => problem.category === definition.category);
-        const cost = categoryProblems.reduce((sum, problem) => sum + problemRepairCost(problem), 0);
+        const project = problemProjectFor(categoryProblems[0]);
+        const cost = project ? problemRepairCost(project) : 0;
         const severity = Math.max(0, Math.min(100, wearByCategory[definition.category]));
         const hue = Math.max(0, 120 - severity * 4);
         return `<li style="background:hsl(${hue} 72% 94%);border-color:hsl(${hue} 45% 80%);color:hsl(${hue} 48% 30%)"><span><b>${escapeHtml(definition.category)}</b><small>Износ ${wearByCategory[definition.category]}% · ремонт ${money(cost)} ₽<br>Если проблему не устранить: ${escapeHtml(PROBLEM_CONSEQUENCES[definition.category])}</small></span></li>`;
@@ -1224,53 +1269,130 @@
     elements.inspectionPanel.innerHTML = `<div class="inspection-heading"><div><p class="section-label">СЕЗОННОЕ ОБСЛУЖИВАНИЕ · ${escapeHtml(season.toUpperCase())}</p><h2>Проведи ${SEASONS[state.seasonIndex] === SEASONS[1] ? "осенний" : "весенний"} осмотр</h2></div><span class="inspection-icon">⌕</span></div><p>Нажми кнопку осмотра в панели хода. Случайно выявится от ${CONFIG.rules.problemCardsPerInspectionMin} до ${CONFIG.rules.problemCardsPerInspectionMax} проблем из колоды; инженер уменьшает это число на ${CONFIG.rules.engineerInspectionReduction}.</p><div class="inspection-result">Проблем на доме сейчас: <b>${state.houseProblems.length}</b></div>`;
   }
 
-  function problemRequirements(problem) {
-    const definition = HOUSE_PROBLEMS.find(item => item.category === problem.category);
-    const work = {};
-    let materials = 0;
-    let contractorWork = 0;
-    const contractorWorkByCategory = {};
-    const baseWork = {};
-    for (const task of definition?.tasks || []) {
-      const rawMaterialCost = task.materialCost ?? (definition.materialOnly ? definition.materialCost : 0);
-      materials += rawMaterialCost;
-      if (task.labor > 0) {
-        baseWork[task.category] = (baseWork[task.category] || 0) + task.labor;
-        const role = Object.values(ROLES).find(item => item.category === task.category);
-        const taskWorkCost = ((role?.salary || ROLES.handyman.salary) + CONFIG.economy.contractorMarkup) * CONFIG.rules.problemRepairLaborCostMultiplier;
-        contractorWork += taskWorkCost;
-        contractorWorkByCategory[task.category] = (contractorWorkByCategory[task.category] || 0) + taskWorkCost;
-      }
+  function randomInteger(minimum, maximum) { return minimum + Math.floor(Math.random() * (maximum - minimum + 1)); }
+  function expectedNaturalCollectionRate(home) {
+    const history = state.houseCollectionHistory?.[home.name] || [];
+    const matchingPeriod = history.find(record => record.year === state.year - 1 && record.seasonIndex === state.seasonIndex && record.seasonTurnIndex === state.seasonTurnIndex);
+    if (matchingPeriod) return matchingPeriod.naturalRate;
+    const latest = history.reduce((best, record) => !best || record.turn > best.turn ? record : best, null);
+    if (latest) return latest.naturalRate;
+    if (Number.isFinite(home.lastCollectionRate)) {
+      const accountantBonus = activeEmployees().filter(employee => employee.role === "accountant" && employee.bonus === "raiseCollection").length * CONFIG.rules.accountantCollectionBonusPercent;
+      return Math.max(CONFIG.economy.collectionMinPercent, Math.min(CONFIG.economy.collectionMaxPercent, home.lastCollectionRate - accountantBonus));
     }
-    const minimumMaterialCost = Math.max(0.01, Number(CONFIG.rules.problemMinimumMaterialCost) || 5);
-    materials = Math.max(minimumMaterialCost, materials);
-    const undiscountedMaterials = materials;
-    const materialDiscount = Math.min(100, employeeBonusCount("engineer", "discountProblemMaterials") * CONFIG.rules.engineerMaterialDiscountPercent);
-    Object.assign(work, baseWork);
-    let laborReduction = employeeBonusCount("engineer", "reduceProblemLabor") * CONFIG.rules.problemLaborReductionWithEngineer;
-    for (const category of Object.keys(work)) { const reduction = Math.min(work[category], laborReduction); work[category] -= reduction; laborReduction -= reduction; }
-    for (const category of Object.keys(work)) if (work[category] <= 0) delete work[category];
-    return { work, baseWork, materials, undiscountedMaterials, materialDiscount, contractorWork, contractorWorkByCategory };
+    return Math.max(CONFIG.economy.collectionMinPercent, Math.min(CONFIG.economy.collectionMaxPercent, 65));
   }
 
-  function remainingProblemContractorWork(problem) {
-    const requirements = problemRequirements(problem);
-    const progress = problemProgress(problem);
-    return Object.entries(requirements.baseWork).reduce((sum, [category, totalLabor]) => {
-      const remaining = Math.max(0, totalLabor - (progress[category] || 0));
-      const taskWork = requirements.contractorWorkByCategory[category] || 0;
-      return sum + Math.ceil(taskWork * remaining / totalLabor * 100) / 100;
-    }, 0);
+  function nextNaturalCollectionRate(home) {
+    const minimum = Math.ceil(CONFIG.economy.collectionMinPercent);
+    const maximum = Math.floor(CONFIG.economy.collectionMaxPercent);
+    const history = state.houseCollectionHistory?.[home.name] || [];
+    const latest = history.reduce((best, record) => !best || record.turn > best.turn ? record : best, null);
+    if (!latest && !Number.isFinite(home.lastCollectionRate)) {
+      const low = Math.max(minimum, 50);
+      const high = Math.min(maximum, 80);
+      const rate = low <= high ? randomInteger(low, high) : randomInteger(minimum, maximum);
+      return { rate, previous: null, change: 0 };
+    }
+    const previous = Math.max(minimum, Math.min(maximum, latest ? latest.naturalRate : expectedNaturalCollectionRate(home)));
+    const houseRequests = state.requests.filter(card => (card.houseName || state.houseName) === home.name && !card.resolved && !card.cancelled);
+    const overdueRequests = houseRequests.filter(requestIsOverdue).length;
+    const houseProblemsCount = state.houseProblems.filter(problem => (problem.houseName || state.houseName) === home.name).length;
+    let decreaseWeight = 1 + Math.min(3, houseRequests.length) + Math.min(3, overdueRequests) + Math.min(3, houseProblemsCount);
+    let increaseWeight = 1;
+    if (state.seasonIndex === 0 || state.seasonIndex === 3) decreaseWeight += 1;
+    if (state.seasonIndex === 2) increaseWeight += 1;
+    const stableWeight = 1;
+    const roll = randomInteger(1, decreaseWeight + increaseWeight + stableWeight);
+    const direction = roll <= decreaseWeight ? "decrease" : roll <= decreaseWeight + increaseWeight ? "increase" : "stable";
+    const requestedChange = direction === "stable" ? 0 : randomInteger(1, 20) * (direction === "decrease" ? -1 : 1);
+    const rate = Math.max(minimum, Math.min(maximum, previous + requestedChange));
+    return { rate, previous, change: rate - previous };
+  }
+  function isMaterialOnlyProblemCategory(category) { return (CONFIG.rules.problemRepairMaterialOnlyCategories || ["Лифты", "Пожаротушение", "ИТП"]).includes(category); }
+  function createProblemRepairStage(category) {
+    const definition = HOUSE_PROBLEMS.find(item => item.category === category);
+    const profiles = (definition?.tasks || []).filter(task => task.labor > 0).map(task => task.category);
+    const minWorks = Math.max(1, Number(CONFIG.rules.problemRepairWorkItemsMin) || 1);
+    const maxWorks = Math.max(minWorks, Number(CONFIG.rules.problemRepairWorkItemsMax) || 3);
+    const minLabor = Math.max(1, Number(CONFIG.rules.problemRepairLaborMin) || 2);
+    const maxLabor = Math.max(minLabor, Number(CONFIG.rules.problemRepairLaborMax) || 4);
+    const materialMin = Math.max(1, Number(CONFIG.rules.problemRepairMaterialsMin) || 3);
+    const materialMax = Math.max(materialMin, Number(CONFIG.rules.problemRepairMaterialsMax) || 10);
+    const materialOnly = isMaterialOnlyProblemCategory(category);
+    const workCount = materialOnly || !profiles.length ? 0 : randomInteger(minWorks, maxWorks);
+    return {
+      materialUnits: randomInteger(materialMin, materialMax), materialPurchased: false, materialCostPaid: 0,
+      tasks: Array.from({ length: workCount }, () => ({ category: profiles[randomInteger(0, profiles.length - 1)], labor: randomInteger(minLabor, maxLabor), done: 0 })),
+      executionMethod: null, laborReductionLogged: false
+    };
   }
 
+  function ensureProblemProjects() {
+    if (!Array.isArray(state.houseProblems) || !state.houseProblems.length) return;
+    let changed = false;
+    const groups = new Map();
+    state.houseProblems.forEach(problem => {
+      const key = `${problem.houseName || state.houseName}\u0000${problem.category}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(problem);
+    });
+    groups.forEach(group => {
+      const owner = group.find(problem => Array.isArray(problem.repairStages)) || group[0];
+      const baseStages = Math.max(1, Number(CONFIG.rules.problemRepairBaseStages) || 2);
+      const configuredExtra = Number(CONFIG.rules.problemRepairExtraStagePerCategoryCard);
+      const extraPerCard = Math.max(0, Number.isFinite(configuredExtra) ? configuredExtra : 1);
+      const expectedStages = baseStages + Math.max(0, group.length - 1) * extraPerCard;
+      if (!Array.isArray(owner.repairStages)) { owner.repairStages = []; owner.repairStageIndex = 0; changed = true; }
+      while (owner.repairStages.length < expectedStages) { owner.repairStages.push(createProblemRepairStage(owner.category)); changed = true; }
+      if (!Number.isInteger(owner.repairStageIndex)) { owner.repairStageIndex = 0; changed = true; }
+      owner.repairStageIndex = Math.max(0, Math.min(owner.repairStages.length, owner.repairStageIndex));
+      group.forEach(problem => {
+        if (problem.repairProjectId !== owner.id) { problem.repairProjectId = owner.id; changed = true; }
+      });
+    });
+    if (changed && typeof saveState === "function") saveState();
+  }
+
+  function problemProjectCards(project) {
+    return state.houseProblems.filter(problem => problem.repairProjectId === project.id || (problem.houseName || state.houseName) === (project.houseName || state.houseName) && problem.category === project.category);
+  }
+  function problemProjects() { ensureProblemProjects(); return state.houseProblems.filter(problem => problem.repairProjectId === problem.id); }
+  function problemProjectFor(problem) { ensureProblemProjects(); return state.houseProblems.find(item => item.id === problem?.repairProjectId) || problem; }
+  function problemStageTasks(stage) {
+    if (!Array.isArray(stage.effectiveTasks)) {
+      let reduction = employeeBonusCount("engineer", "reduceProblemLabor") * (CONFIG.rules.problemLaborReductionWithEngineer || 2);
+      stage.effectiveTasks = (stage.tasks || []).map(task => {
+        const applied = Math.min(task.labor, reduction);
+        reduction -= applied;
+        return { ...task, requiredLabor: task.labor - applied, done: Math.min(task.done || 0, task.labor - applied) };
+      });
+    }
+    return stage.effectiveTasks;
+  }
+  function problemStageComplete(stage) {
+    return stage.materialPurchased && problemStageTasks(stage).every(task => task.done >= task.requiredLabor);
+  }
+  function problemProjectRemainingStages(project) { return (project.repairStages || []).slice(project.repairStageIndex || 0); }
+  function problemProjectMaterialUnits(project) { return problemProjectRemainingStages(project).filter(stage => !stage.materialPurchased).reduce((sum, stage) => sum + stage.materialUnits, 0); }
+  function problemProjectMaterialPurchaseCost(project) { return materialShortage(problemProjectMaterialUnits(project)) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier; }
+  function problemContractorSalary(profile) { return Number(CONFIG.rules.problemRepairContractorSalaryByCategory?.[profile]) || 0; }
+  function problemStageContractorWorkCost(stage) { return (stage.tasks || []).reduce((sum, task) => sum + problemContractorSalary(task.category) * (Number(CONFIG.rules.problemRepairContractorSalaryShare) || 0.5), 0); }
+  function problemStageContractorPrice(stage) {
+    const work = problemStageContractorWorkCost(stage);
+    return work > 0 ? work + (Number(CONFIG.rules.problemRepairContractorCalloutFee) || 10) : 0;
+  }
+  function problemProjectContractorPrice(project) {
+    const stages = problemProjectRemainingStages(project);
+    const work = stages.reduce((sum, stage) => sum + problemStageContractorWorkCost(stage), 0);
+    if (!work) return 0;
+    const gross = work + (Number(CONFIG.rules.problemRepairContractorCalloutFee) || 10);
+    const discount = Math.min(100, stages.length * (Number(CONFIG.rules.problemRepairBulkDiscountPerStagePercent) || 2));
+    return Math.round(gross * (1 - discount / 100) * 100) / 100;
+  }
   function problemRepairCost(problem) {
-    const requirements = problemRequirements(problem);
-    const materialCost = Number.isFinite(problem.materialCostPaid) ? problem.materialCostPaid : (problem.materialPurchased ? 0 : materialShortage(requirements.materials) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier);
-    return materialCost + remainingProblemContractorWork(problem);
-  }
-
-  function problemProgress(problem) {
-    return problem.repairProgress && typeof problem.repairProgress === "object" ? problem.repairProgress : {};
+    const project = problemProjectFor(problem);
+    return problemProjectMaterialPurchaseCost(project) + problemProjectContractorPrice(project);
   }
 
   function unsafeHouseSeasonsRemaining(houseName = state.houseName) {
@@ -1281,16 +1403,14 @@
     return Math.max(0, CONFIG.rules.unsafeHouseGraceSeasons - completedSeasonsAfterTrigger);
   }
 
-  function problemLaborAdjustmentMessages(problem) {
-    if (problem.laborReductionLogged) return [];
-    const requirements = problemRequirements(problem);
-    const baseLabor = Object.values(requirements.baseWork).reduce((sum, value) => sum + value, 0);
-    const remainingLabor = Object.values(requirements.work).reduce((sum, value) => sum + value, 0);
-    const reduction = baseLabor - remainingLabor;
-    if (reduction <= 0) return [];
+  function problemLaborAdjustmentMessages(project, stage, stageNumber) {
+    const tasks = problemStageTasks(stage);
+    const original = (stage.tasks || []).reduce((sum, task) => sum + task.labor, 0);
+    const adjusted = tasks.reduce((sum, task) => sum + task.requiredLabor, 0);
+    if (adjusted >= original || stage.laborReductionLogged) return [];
+    stage.laborReductionLogged = true;
     const engineers = activeEmployees().filter(employee => employee.role === "engineer" && employee.bonus === "reduceProblemLabor");
-    problem.laborReductionLogged = true;
-    return engineers.map(engineer => `Инженер ${engineer.name} сократил требуемые работы по проблеме «${problem.category}» на ${reduction} трудозатраты.`);
+    return engineers.map(engineer => `Инженер ${engineer.name} сократил требуемые работы на этапе ${stageNumber} проблемы «${project.category}» на ${original - adjusted} трудозатраты.`);
   }
 
   function phaseActionLabel() {
@@ -1307,52 +1427,123 @@
     })[state.phase] || "Продолжить";
   }
 
-  function renderProblemPanel() {
-    const rows = state.houseProblems.map(problem => {
-      const requirements = problemRequirements(problem);
-      const progress = problemProgress(problem);
-      const materialPurchased = problem.materialPurchased === true;
-      const workRows = Object.entries(requirements.work).map(([category, required]) => {
-        const done = Math.min(required, progress[category] || 0);
-        const remaining = required - done;
-        const workers = activeEmployees().filter(employee => ROLES[employee.role]?.category === category);
-        const regularButtons = [];
-        const paidOvertimeButtons = [];
-        const unpaidOvertimeButtons = [];
-        workers.forEach(employee => {
-          const name = escapeHtml(employee.name || roleName(employee.role));
-          const workerLabel = `${roleName(employee.role)}: ${name}`;
-          const available = Math.max(0, effectiveProductivity(employee) - employee.assignedLabor);
-          const regularWork = Math.min(remaining, available);
-          const productivityLabel = `<span class="worker-productivity-count">(${quantity(available)}/${quantity(effectiveProductivity(employee))})</span>`;
-          if (regularWork) regularButtons.push(`<button class="problem-work-button" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="none" ${!materialPurchased ? "disabled" : ""}>${workerLabel} · ${productivityLabel} · без премии</button>`);
-          if (remaining <= regularWork) return;
-          const overtimePlan = overtimeFor(employee, remaining);
-          paidOvertimeButtons.push(`<button class="problem-work-button problem-overtime-paid" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="paid" ${!materialPurchased || !canCoverRequiredCost(overtimePlan.premium) ? "disabled" : ""}>${workerLabel} · ${productivityLabel} · премия ${money(overtimePlan.premium)} ₽</button>`);
-          unpaidOvertimeButtons.push(`<button class="problem-work-button problem-overtime-unpaid" type="button" data-problem-work="${escapeHtml(problem.id)}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(category)}" data-problem-overtime="unpaid" ${!materialPurchased ? "disabled" : ""}>${workerLabel} · ${productivityLabel} · без премии, недовольство</button>`);
-        });
-        const workerButtons = [...regularButtons, ...paidOvertimeButtons, ...unpaidOvertimeButtons].join("");
-        return `<div class="problem-work-row"><div><strong>${escapeHtml(category)}</strong><span>Выполнено ${done} / ${required} · осталось ${remaining}</span></div><div class="problem-work-actions">${workerButtons || `<span class="problem-work-empty">${remaining ? "Нет доступного исполнителя этой категории" : "Категория завершена"}</span>`}</div></div>`;
+  function renderPhaseContext() {
+    const panel = document.getElementById("phase-context");
+    if (!panel) return;
+    const homes = managedHomes();
+    const row = (label, value) => `<div class="phase-context-row"><span>${label}</span><b>${value}</b></div>`;
+    let content = "";
+    if (state.phase === "staffing") {
+      const counts = { satisfied: 0, dissatisfied: 0, veryDissatisfied: 0, normal: 0 };
+      state.employees.forEach(employee => { counts[moodOf(employee)] += 1; });
+      const moodLabels = { satisfied: "Довольных", dissatisfied: "Недовольных", veryDissatisfied: "Очень недовольных", normal: "Нейтральных" };
+      const moods = Object.entries(counts).filter(([, count]) => count > 0).map(([mood, count]) => `<span class="phase-mood mood-${mood}">${moodLabels[mood]}: ${quantity(count)}</span>`).join("");
+      const issues = state.employees.some(employee => employee.deceased || employee.pendingDeparture);
+      content = `<div class="phase-context-moods">${moods || '<span>Сотрудников в штате пока нет</span>'}</div>${issues ? '<div class="phase-context-warning">У сотрудников есть вопросы!</div>' : ""}`;
+    } else if (state.phase === "inspection") {
+      content = row("Домов в управлении", quantity(homes.length)) + row("Уже выявлено проблем", quantity(state.houseProblems.length));
+    } else if (state.phase === "problems") {
+      content = homes.map(home => {
+        const count = state.houseProblems.filter(problem => (problem.houseName || state.houseName) === home.name).length;
+        return row(escapeHtml(home.address || home.name), `${quantity(count)} ${countNoun(count, ["проблема", "проблемы", "проблем"])}`);
+      }).join("") || row("Дома в управлении", "нет");
+    } else if (state.phase === "drawing") {
+      const requests = state.requests.filter(card => !card.resolved && !card.cancelled);
+      content = homes.map(home => {
+        const count = requests.filter(card => (card.houseName || state.houseName) === home.name).length;
+        return row(escapeHtml(home.address || home.name), `${quantity(count)} ${countNoun(count, ["заявка", "заявки", "заявок"])}`);
+      }).join("") || row("Заявок", "0");
+    } else if (state.phase === "resolving") {
+      const executorRoles = ["plumber", "electrician", "handyman", "janitor"];
+      const remaining = executorRoles.map(roleId => {
+        const total = activeEmployees().filter(employee => employee.role === roleId).reduce((sum, employee) => sum + Math.max(0, effectiveProductivity(employee) - (Number(employee.assignedLabor) || 0)), 0);
+        const roleLabel = { plumber: "Сантехники", electrician: "Электрики", handyman: "Разнорабочие", janitor: "Дворники" }[roleId];
+        return total > 0 || state.employees.some(employee => employee.role === roleId && !employee.deceased) ? row(roleLabel, `${quantity(total)} ед.`) : "";
       }).join("");
-      const materialNeed = problem.materialUnits || requirements.materials;
-      const materialShortageUnits = materialPurchased ? 0 : materialShortage(materialNeed);
-      const materialPurchaseCost = materialPurchased ? (problem.materialCostPaid || 0) : materialShortageUnits * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-      const materialButton = !materialPurchased ? `<button class="problem-material-button" type="button" data-problem-material="${escapeHtml(problem.id)}" ${!canCoverRequiredCost(materialPurchaseCost) ? "disabled" : ""}>${materialShortageUnits === 0 ? `Списать со склада · ${materialNeed} ед.` : `Материалы ${materialNeed} ед. · докупить ${materialShortageUnits} ед. за ${money(materialPurchaseCost)} ₽`}</button><span class="problem-material-paid">На складе: ${quantity(state.materialStock)} ед.</span>` : `<span class="problem-material-paid">Материалы закуплены · ${materialNeed} ед.</span>`;
-      const contractorCost = remainingProblemContractorWork(problem);
-      const contractorButton = `<button class="problem-contract-button" type="button" data-problem-contract="${escapeHtml(problem.id)}" ${!materialPurchased || state.capital < contractorCost ? "disabled" : ""}>Подрядчик · работы ${money(contractorCost)} ₽</button>`;
-      const combinedMaterialCost = materialPurchased ? 0 : materialNeed * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-      const combinedContractorCost = contractorCost + combinedMaterialCost;
-      const combinedContractorButton = !materialPurchased && materialNeed > 0 ? `<button class="problem-contract-button" type="button" data-problem-contract-combined="${escapeHtml(problem.id)}" ${state.capital < combinedContractorCost ? "disabled" : ""}>Подрядчик + Материал: ${money(combinedContractorCost)} ₽</button>` : "";
-      const problemHome = managedHomeByName(problem.houseName || state.houseName);
-      const unsafeSince = problemHome?.primary ? state.houseUnsafeSinceTurn : problemHome?.unsafeSinceTurn;
-      const status = unsafeSince != null ? `<span class="unsafe-countdown">До автоматического признания дома аварийным: ${unsafeHouseSeasonsRemaining(problemHome.name)} полных сезонов</span>` : "";
-      return `<article class="problem-repair-card"><div class="problem-repair-main"><strong>${escapeHtml(problem.houseAddress || managedHomeByName(problem.houseName)?.address || state.houseAddress)} · ${escapeHtml(problem.category)} · износ ${problem.wear}%</strong><span>Сначала приобрети материалы. Затем полностью устрани работы подрядчиком или штатными сотрудниками. Трудозатраты можно накапливать между ходами. Общая оценка: ${money(problemRepairCost(problem))} ₽</span></div>${status}<div class="problem-material-actions">${materialButton}</div><div class="problem-work-list">${workRows || `<div class="problem-work-row"><div><strong>Работы без затрат продуктивности</strong><span>Для завершения ремонта всё равно нужна покупка материалов и подтверждение способа выполнения.</span></div></div>`}</div><div class="problem-repair-actions">${contractorButton}${combinedContractorButton}</div></article>`;
+      content = remaining || row("Исполнители", "нет в штате");
+    } else if (state.phase === "legal") {
+      const availableLawyers = activeLawyers().filter(employee => !state.lawyerActionsUsed.includes(employee.id) && lawyerHasAvailableTask(employee)).length;
+      const availableEngineers = activeEmployees().filter(employee => employee.role === "engineer" && !state.engineerMaterialsUsed.includes(employee.id) && state.capital >= materialUnitCost(true)).length;
+      content = row("Специалистов с доступным поручением", quantity(availableLawyers + availableEngineers));
+    } else if (state.phase === "payroll") {
+      let due = 0, withheld = 0, premiums = 0;
+      const sliderAdjustments = new Map([...document.querySelectorAll("[data-withhold]")].map(slider => [slider.dataset.withhold, -Number(slider.value)]));
+      state.employees.filter(employee => !employee.deceased).forEach(employee => {
+        const salary = effectiveSalary(employee);
+        const adjustment = sliderAdjustments.has(employee.id) ? sliderAdjustments.get(employee.id) : Number(employee.withholdPercent) || 0;
+        due += salary * (1 - adjustment / 100);
+        withheld += salary * Math.max(0, adjustment) / 100;
+        premiums += salary * Math.max(0, -adjustment) / 100;
+      });
+      content = row("К выплате", `${money(due)} ₽`) + row("Удержание в этом ходе", `${money(withheld)} ₽`) + row("Премии в этом ходе", `${money(premiums)} ₽`);
+    } else if (state.phase === "collection") {
+      const rateCap = Math.min(100, CONFIG.economy.collectionMaxPercent);
+      const accountants = activeEmployees().filter(employee => employee.role === "accountant" && employee.bonus === "raiseCollection");
+      const estimate = homes.reduce((sum, home) => {
+        const billed = home.area * currentTariff(home);
+        let rate = Math.min(rateCap, expectedNaturalCollectionRate(home));
+        accountants.forEach(() => { rate += Math.max(0, Math.min(CONFIG.rules.accountantCollectionBonusPercent, rateCap - rate)); });
+        return sum + Math.round(billed * rate / 100);
+      }, 0);
+      const upkeep = effectiveBaseMaintenanceTotal();
+      content = row("Предполагаемый сбор", `${money(estimate)} ₽`) + row("Базовое обслуживание всех домов", `${money(upkeep)} ₽`);
+    }
+    panel.innerHTML = content;
+    panel.hidden = !content;
+  }
+
+  function renderProblemPanel() {
+    const rows = problemProjects().map(project => {
+      const cards = problemProjectCards(project);
+      const stageIndex = Math.min(project.repairStageIndex || 0, project.repairStages.length - 1);
+      const stage = project.repairStages[stageIndex];
+      if (!stage) return "";
+      const materialNeed = stage.materialUnits;
+      const stageMaterialCost = materialShortage(materialNeed) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
+      const allMaterialNeed = problemProjectMaterialUnits(project);
+      const allMaterialCost = materialShortage(allMaterialNeed) * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
+      const materialButtons = [];
+      if (!stage.materialPurchased) materialButtons.push(`<button class="problem-material-button" type="button" data-problem-material="${escapeHtml(project.id)}" data-stage="${stageIndex}" >Материалы этапа ${stageIndex + 1}: ${materialNeed} ед. · ${stageMaterialCost ? `докупить за ${money(stageMaterialCost)} ₽` : `списать со склада`}</button>`);
+      if (allMaterialNeed > 0 && (stage.materialPurchased || allMaterialNeed > materialNeed)) materialButtons.push(`<button class="problem-material-button" type="button" data-problem-material="${escapeHtml(project.id)}" data-stage="all" >Закупить все материалы · ${allMaterialNeed} ед. · ${allMaterialCost ? `${money(allMaterialCost)} ₽` : `со склада`}</button>`);
+      const workRows = problemStageTasks(stage).map((task, taskIndex) => {
+        const remaining = Math.max(0, task.requiredLabor - task.done);
+        const workers = activeEmployees().filter(employee => !employee.deceased && ROLES[employee.role]?.category === task.category);
+        const regularButtons = [], paidButtons = [], unpaidButtons = [];
+        workers.forEach(employee => {
+          const available = Math.max(0, effectiveProductivity(employee) - employee.assignedLabor);
+          const normal = Math.min(remaining, available);
+          const label = `${roleName(employee.role)}: ${escapeHtml(employee.name || "") } <span class="worker-productivity-count">(${quantity(available)}/${quantity(effectiveProductivity(employee))})</span>`;
+          const attrs = `data-problem-work="${escapeHtml(project.id)}" data-problem-stage="${stageIndex}" data-problem-task="${taskIndex}" data-problem-worker="${escapeHtml(employee.id)}" data-problem-category="${escapeHtml(task.category)}"`;
+          if (normal) regularButtons.push(`<button class="problem-work-button" type="button" ${attrs} data-problem-overtime="none" ${!stage.materialPurchased || stage.executionMethod === "contractor" ? "disabled" : ""}>${label} · без премии</button>`);
+          if (remaining > normal) {
+            const plan = overtimeFor(employee, remaining);
+            paidButtons.push(`<button class="problem-work-button problem-overtime-paid" type="button" ${attrs} data-problem-overtime="paid" ${!stage.materialPurchased || stage.executionMethod === "contractor" || !canCoverRequiredCost(plan.premium) ? "disabled" : ""}>${label} · премия ${money(plan.premium)} ₽</button>`);
+            unpaidButtons.push(`<button class="problem-work-button problem-overtime-unpaid" type="button" ${attrs} data-problem-overtime="unpaid" ${!stage.materialPurchased || stage.executionMethod === "contractor" ? "disabled" : ""}>${label} · без премии</button>`);
+          }
+        });
+        return `<div class="problem-work-row"><div><strong>${escapeHtml(task.category)} · трудозатраты ${quantity(task.requiredLabor)}</strong><span>Выполнено ${quantity(task.done)} · осталось ${quantity(remaining)}</span></div><div class="problem-work-actions">${[...regularButtons, ...paidButtons, ...unpaidButtons].join("") || `<span class="problem-work-empty">Нет доступного исполнителя этой категории</span>`}</div></div>`;
+      }).join("");
+      const stageContractorCost = problemStageContractorPrice(stage);
+      const bulkContractorCost = problemProjectContractorPrice(project);
+      const stageContractButton = !isMaterialOnlyProblemCategory(project.category) ? `<button class="problem-contract-button" type="button" data-problem-stage-contract="${escapeHtml(project.id)}" data-stage="${stageIndex}" ${!stage.materialPurchased ? "disabled" : ""}>Подрядчик · этап ${stageIndex + 1}: ${money(stageContractorCost)} ₽</button>` : `<span class="problem-work-empty">Работы уже входят в базовое обслуживание</span>`;
+      const bulkContractButton = problemProjectRemainingStages(project).length > 1 && !isMaterialOnlyProblemCategory(project.category) ? `<button class="problem-contract-button" type="button" data-problem-project-contract="${escapeHtml(project.id)}" ${problemProjectRemainingStages(project).some(item => !item.materialPurchased) ? "disabled" : ""}>Подрядчик · все этапы со скидкой: ${money(bulkContractorCost)} ₽</button>` : "";
+      const home = managedHomeByName(project.houseName || state.houseName);
+      const unsafeSince = home?.primary ? state.houseUnsafeSinceTurn : home?.unsafeSinceTurn;
+      const status = unsafeSince != null ? `<span class="unsafe-countdown">До автоматического признания дома аварийным: ${unsafeHouseSeasonsRemaining(home.name)} полных сезонов</span>` : "";
+      const homeName = project.houseName || state.houseName;
+      const categoryWear = cards.reduce((sum, card) => sum + card.wear, 0);
+      const voteKey = `${homeName}:${project.category}`;
+      const retryTurn = home?.capitalRepairOssRetryTurn?.[project.category] || 0;
+      const canVoteForCapitalRepair = state.phase === "problems" && categoryWear >= (CONFIG.oss?.capitalRepairWearThresholdPercent ?? 60) && retryTurn <= state.turn && !state.ossVoteUsedCategories.includes(voteKey);
+      const ossButton = canVoteForCapitalRepair ? `<button class="oss-repair-button inline-problem-oss-button" type="button" data-oss-capital-repair="${escapeHtml(project.category)}" data-oss-house="${escapeHtml(homeName)}">ОСС: капитальный ремонт</button>` : "";
+      return `<article class="problem-repair-card"><div class="problem-repair-main"><div class="problem-repair-title-row"><strong>${escapeHtml(project.houseAddress || home?.address || state.houseAddress)} · ${escapeHtml(project.category)} · износ ${categoryWear}%</strong>${ossButton}</div><span>Карточек категории: ${cards.length}. Этапов: ${project.repairStages.length}; текущий ${stageIndex + 1}. +1 репутация за каждый завершённый этап.</span></div>${status}<div class="problem-stage-card"><h3>Этап ${stageIndex + 1} из ${project.repairStages.length}</h3><p>Материалы обязательны: ${quantity(materialNeed)} ед. · ${stage.materialPurchased ? "закуплены" : `стоимость покупки ${money(stageMaterialCost)} ₽`}</p><div class="problem-material-actions">${materialButtons.join("") || `<span class="problem-material-paid">Материалы этапа закуплены</span>`}</div><div class="problem-work-list">${workRows || (stage.materialPurchased ? `<div class="problem-work-row"><span>Для этого этапа нужны только материалы.</span></div>` : "")}</div><div class="problem-repair-actions">${stageContractButton}${bulkContractButton}</div></div></article>`;
     }).join("");
-    elements.problemPanel.innerHTML = `<div class="problem-panel-heading"><div><p class="section-label">ЭТАП · РЕШЕНИЕ ПРОБЛЕМ</p><h2>Материалы и ремонт дома</h2></div><span class="inspection-icon">⚒</span></div><p>Сначала приобрети материалы. Затем оплати подрядчику только работы или распределяй трудозатраты между штатными исполнителями. Работы можно завершать поэтапно в разные сезоны.</p><div class="problem-repair-list">${rows || '<div class="problem-none">На доме нет известных проблем. Переходи к приёму заявок.</div>'}</div>`;
-    elements.problemPanel.querySelectorAll("[data-problem-material]").forEach(button => button.addEventListener("click", () => purchaseProblemMaterials(button.dataset.problemMaterial)));
-    elements.problemPanel.querySelectorAll("[data-problem-contract]").forEach(button => button.addEventListener("click", () => hireProblemContractor(button.dataset.problemContract)));
-    elements.problemPanel.querySelectorAll("[data-problem-contract-combined]").forEach(button => button.addEventListener("click", () => hireProblemContractor(button.dataset.problemContractCombined, true)));
-    elements.problemPanel.querySelectorAll("[data-problem-work]").forEach(button => button.addEventListener("click", () => assignProblemWork(button.dataset.problemWork, button.dataset.problemWorker, button.dataset.problemCategory, button.dataset.problemOvertime)));
+    elements.problemPanel.innerHTML = `<div class="problem-panel-heading"><div><p class="section-label">ЭТАП · РЕШЕНИЕ ПРОБЛЕМ</p><h2>Материалы и ремонт дома</h2></div><span class="inspection-icon">⚒</span></div><p>Каждая проблема запускает ремонт из двух этапов; каждая дополнительная карта той же категории добавляет этап. Сначала закупи материалы для одного этапа или сразу для всех. Затем выполняй текущий этап сотрудниками или подрядчиком. Следующий этап станет доступен после завершения текущего.</p><div class="problem-repair-list">${rows || '<div class="problem-none">На доме нет известных проблем. Переходи к приёму заявок.</div>'}</div>`;
+    elements.problemPanel.querySelectorAll("[data-problem-material]").forEach(button => button.addEventListener("click", () => purchaseProblemMaterials(button.dataset.problemMaterial, button.dataset.stage)));
+    elements.problemPanel.querySelectorAll("[data-problem-stage-contract]").forEach(button => button.addEventListener("click", () => hireProblemContractor(button.dataset.problemStageContract, Number(button.dataset.stage))));
+    elements.problemPanel.querySelectorAll("[data-problem-project-contract]").forEach(button => button.addEventListener("click", () => hireProblemContractor(button.dataset.problemProjectContract, "all")));
+    elements.problemPanel.querySelectorAll("[data-problem-work]").forEach(button => button.addEventListener("click", () => assignProblemWork(button.dataset.problemWork, button.dataset.problemWorker, button.dataset.problemCategory, button.dataset.problemOvertime, Number(button.dataset.problemStage), Number(button.dataset.problemTask))));
+    elements.problemPanel.querySelectorAll("[data-oss-capital-repair]").forEach(button => button.addEventListener("click", () => resolveOssCapitalRepair(button.dataset.ossCapitalRepair, button.dataset.ossHouse)));
   }
 
   function updateHouseSafetyStatus() {
@@ -1414,7 +1605,7 @@
       state.houseProblems = state.houseProblems.filter(problem => problem.houseName !== home.name);
       state.houseUnsafeSinceYear = null; state.houseUnsafeSinceTurn = null; state.houseUnsafeCategory = null; state.houseUnsafeReasons = [];
     }
-    state.reputation -= reputationPenalty;
+    changeReputation(-reputationPenalty);
     state.unsafeHousePenaltyYear = state.year;
     addLog(voluntary ? `Игрок признал дом «${oldHouseName}» аварийным и изъял его из управления. Адрес: ${home.address}. Причина: ${reasons}. Репутация −${reputationPenalty}.` : `По истечении ${CONFIG.rules.unsafeHouseGraceSeasons} полных сезонов дом «${oldHouseName}» (${home.address}) автоматически признан аварийным и изъят из управления. Причина: ${reasons}. Репутация −${reputationPenalty}.`);
     if (CONFIG.rules.unsafeHouseEndsGame && state.houses === 0 && availableRealEstateHomes().length === 0) {
@@ -1442,60 +1633,69 @@
     return true;
   }
 
-  function finishProblemRepair(problem) {
-    state.houseProblems = state.houseProblems.filter(item => item.id !== problem.id);
-    const stillInCategory = state.houseProblems.some(item => item.category === problem.category && item.houseName === problem.houseName);
-    if (!stillInCategory) {
-      state.reputation += CONFIG.rules.clearedProblemCategoryReputationBonus;
-      addLog(`Все проблемы категории «${problem.category}» устранены. Репутация +1.`);
+  function finishProblemRepair(project, stage) {
+    const stageNumber = (project.repairStageIndex || 0) + 1;
+    project.repairStageIndex = stageNumber;
+    changeReputation(1);
+    addLog(`Завершён этап ${stageNumber} ремонта категории «${project.category}» на доме «${project.houseName}». Репутация +1.`);
+    if (project.repairStageIndex >= project.repairStages.length) {
+      const completedCards = problemProjectCards(project);
+      state.houseProblems = state.houseProblems.filter(item => !completedCards.some(card => card.id === item.id));
+      addLog(`Все ${project.repairStages.length} этапа категории «${project.category}» завершены. Карты проблемы сняты с дома.`);
     }
     updateHouseSafetyStatus();
-    if (!state.houseProblems.length) {
-      state.phase = "drawing";
-      addLog("На доме не осталось проблем. Этап решения проблем завершён.");
+    if (!state.houseProblems.length) { state.phase = "drawing"; addLog("На доме не осталось проблем. Этап решения проблем завершён."); }
+  }
+
+  function completeMaterialOnlyStages(project) {
+    let completed = 0;
+    while (project.repairStageIndex < project.repairStages.length) {
+      const stage = project.repairStages[project.repairStageIndex];
+      if (!isMaterialOnlyProblemCategory(project.category) || !problemStageComplete(stage)) break;
+      finishProblemRepair(project, stage); completed++;
+      if (!state.houseProblems.includes(project)) break;
     }
+    return completed;
   }
 
-  function purchaseProblemMaterials(problemId) {
+  function purchaseProblemMaterials(problemId, stageSelection = "0") {
     if (state.phase !== "problems") return;
-    const problem = state.houseProblems.find(item => item.id === problemId);
-    if (!problem || problem.materialPurchased) return;
-    const requirements = problemRequirements(problem);
-    const materials = problem.materialUnits || requirements.materials;
-    const shortage = materialShortage(materials);
+    const project = problemProjectFor(state.houseProblems.find(item => item.id === problemId));
+    if (!project) return;
+    const stages = stageSelection === "all" ? problemProjectRemainingStages(project) : [project.repairStages[Number(stageSelection)]];
+    const toBuy = stages.filter(stage => stage && !stage.materialPurchased);
+    if (!toBuy.length) return;
+    const totalUnits = toBuy.reduce((sum, stage) => sum + stage.materialUnits, 0);
+    const shortage = materialShortage(totalUnits);
     const purchaseCost = shortage * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier;
-    if (!canCoverRequiredCost(purchaseCost)) { showToast(`На покупку ${shortage} ед. материалов нужно ${money(purchaseCost)} ₽.`); return; }
-    const materialStockUsed = Math.min(state.materialStock, materials);
-    if (!changeCapital(-purchaseCost, "материалы для проблемы дома")) return;
-    consumeMaterials(materials);
-    problem.materialUnits = materials;
-    problem.materialCostPaid = purchaseCost;
+
+    const stockUsed = Math.min(state.materialStock, totalUnits);
+    if (!changeCapital(-purchaseCost, "материалы для поэтапного ремонта дома")) return;
+    consumeMaterials(totalUnits);
     state.seasonFinancials.materials += purchaseCost;
-    problem.materialPurchased = true;
-    const materialLog = [`Материалы для проблемы «${problem.category}»: потребность ${quantity(materials)} условных единиц.`];
-    const materialDiscountEmployees = activeEmployees().filter(employee => employee.role === "engineer" && employee.bonus === "discountProblemMaterials");
-    if (requirements.materialDiscount > 0) materialDiscountEmployees.forEach(employee => materialLog.push(`Инженер ${employee.name} снизил себестоимость единицы материала на ${requirements.materialDiscount}%; потребность в материалах не изменилась.`));
-    else materialLog.push("Скидки специалистов на материалы не применялись.");
-    materialLog.push(`Потребность: ${materials} ед.; со склада использовано ${materialStockUsed} ед., докуплено ${shortage} ед. по рыночной цене. Итого: −${money(purchaseCost)} ₽.`);
-    materialLog.push(...problemLaborAdjustmentMessages(problem));
-    addLogSequence(materialLog);
-    saveState(); render(); showToast(shortage === 0
-      ? `Со склада списано: ${quantity(materialStockUsed)} ед.`
-      : `Материалы приобретены: ${quantity(materials)} ед. · −${money(purchaseCost)} ₽`);
+    toBuy.forEach(stage => { stage.materialPurchased = true; stage.materialCostPaid = stage.materialUnits / totalUnits * purchaseCost; });
+    const stageMessage = stageSelection === "all" ? `закуплены материалы для ${toBuy.length} этапов` : `закуплены материалы для этапа ${(Number(stageSelection) || 0) + 1}`;
+    const messages = [`Для проекта «${project.category}» ${stageMessage}: ${totalUnits} ед.`, `Со склада списано ${stockUsed} ед.; докуплено ${shortage} ед. по рыночной цене. Расход: −${money(purchaseCost)} ₽.`];
+    const currentStage = project.repairStages[project.repairStageIndex];
+    messages.push(...problemLaborAdjustmentMessages(project, currentStage, project.repairStageIndex + 1));
+    const autoCompleted = completeMaterialOnlyStages(project);
+    if (autoCompleted) messages.push(`Материальные этапы автоматически завершены: ${autoCompleted}. Репутация +${autoCompleted}.`);
+    addLogSequence(messages);
+    saveState(); render(); showToast(shortage === 0 ? `Со склада списано: ${quantity(stockUsed)} ед.` : `Материалы закуплены: ${quantity(totalUnits)} ед. · −${money(purchaseCost)} ₽`);
   }
 
-  function assignProblemWork(problemId, employeeId, category, overtimeMode = "none") {
+  function assignProblemWork(problemId, employeeId, category, overtimeMode = "none", stageIndex = 0, taskIndex = 0) {
     if (state.phase !== "problems") return;
-    const problem = state.houseProblems.find(item => item.id === problemId);
+    const project = problemProjectFor(state.houseProblems.find(item => item.id === problemId));
     const employee = state.employees.find(item => item.id === employeeId);
-    if (!problem || !employee || employee.deceased || !problem.materialPurchased || ROLES[employee.role]?.category !== category) return;
-    const required = problemRequirements(problem).work[category] || 0;
-    const progress = problemProgress(problem);
-    const remaining = Math.max(0, required - (progress[category] || 0));
+    const stage = project?.repairStages?.[stageIndex];
+    const tasks = stage && problemStageTasks(stage);
+    const task = tasks?.[taskIndex];
+    if (!project || !employee || employee.deceased || !stage?.materialPurchased || stageIndex !== project.repairStageIndex || !task || task.category !== category || ROLES[employee.role]?.category !== category || stage.executionMethod === "contractor") return;
+    const remaining = Math.max(0, task.requiredLabor - task.done);
     const available = Math.max(0, effectiveProductivity(employee) - employee.assignedLabor);
     const regularWork = Math.min(remaining, available);
-    let contribution = regularWork;
-    let premium = 0;
+    let contribution = regularWork, premium = 0;
     if (overtimeMode !== "none") {
       if (remaining <= regularWork) return;
       contribution = remaining;
@@ -1505,48 +1705,38 @@
         if (state.capital < premium) { showToast(`На премию за переработку нужно ${money(premium)} ₽.`); return; }
         if (premium && !changeCapital(-premium, "премия за переработку при решении проблемы")) return;
         state.seasonFinancials.salaries += premium;
-        if (premium) addLog(`Премия за переработку ${roleName(employee.role)} ${employee.name}: ${money(plan.basePremium)} ₽${plan.hrMultiplier < 1 ? ` · HR снизил до ${money(premium)} ₽` : ""}.`);
-      } else {
-        setDissatisfied(employee);
-      }
+      } else setDissatisfied(employee);
     }
     if (!contribution) { showToast("У сотрудника нет свободной продуктивности нужной категории."); return; }
+    stage.executionMethod = "staff";
     employee.assignedLabor += contribution;
-    problem.repairProgress = { ...progress, [category]: (progress[category] || 0) + contribution };
-    const requirements = problemRequirements(problem).work;
-    const completed = Object.entries(requirements).every(([workCategory, amount]) => (problem.repairProgress[workCategory] || 0) >= amount);
-    addLogSequence([...problemLaborAdjustmentMessages(problem), `${roleName(employee.role)} ${employee.name} выполнил ${contribution} трудозатрат по проблеме «${problem.category}» (${category})${overtimeMode === "paid" ? ` с премией ${money(premium)} ₽` : overtimeMode === "unpaid" ? ` без премии; в следующем сезоне будет недоволен` : " в пределах продуктивности"}.`]);
-    if (completed) finishProblemRepair(problem);
+    task.done += contribution;
+    const completed = problemStageComplete(stage);
+    addLogSequence([`${roleName(employee.role)} ${employee.name} выполнил ${contribution} трудозатрат по этапу ${stageIndex + 1} категории «${project.category}» (${category})${overtimeMode === "paid" ? ` с премией ${money(premium)} ₽` : overtimeMode === "unpaid" ? " без премии; сотрудник недоволен" : " в пределах продуктивности"}.`]);
+    if (completed) finishProblemRepair(project, stage);
     if (checkBankruptcy()) { saveState(); render(); showToast(`После премии баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Необходимо объявить банкротство.`); return; }
-    saveState(); render(); showToast(completed ? `Проблема «${problem.category}» устранена силами штата.` : `Работа выполнена: ${contribution} трудозатрат.`);
+    saveState(); render(); showToast(completed ? `Этап ${stageIndex + 1} проблемы завершён силами штата.` : `Работа выполнена: ${contribution} трудозатрат.`);
   }
 
-  function hireProblemContractor(problemId, contractorSuppliesMaterials = false) {
+  function hireProblemContractor(problemId, stageSelection = 0) {
     if (state.phase !== "problems") return;
-    const problem = state.houseProblems.find(item => item.id === problemId);
-    if (!problem || (!problem.materialPurchased && !contractorSuppliesMaterials)) return;
-    const contractorWork = remainingProblemContractorWork(problem);
-    const requirements = problemRequirements(problem);
-    const materialNeed = problem.materialUnits || requirements.materials;
-    const contractorMaterialCost = contractorSuppliesMaterials && !problem.materialPurchased
-      ? materialNeed * materialUnitCost(true) * CONFIG.economy.materialMarketPriceMultiplier
-      : 0;
-    const totalCost = contractorWork + contractorMaterialCost;
-    if (state.capital < totalCost) { showToast(`На подрядчика и материалы нужно ${money(totalCost)} ₽.`); return; }
-    if (contractorSuppliesMaterials && !problem.materialPurchased) {
-      if (!changeCapital(-contractorMaterialCost, "материалы от подрядчика")) return;
-      problem.materialUnits = materialNeed;
-      problem.materialCostPaid = contractorMaterialCost;
-      problem.materialPurchased = true;
-      problem.materialProvidedByContractor = true;
-      state.seasonFinancials.materials += contractorMaterialCost;
-      addLog(`Подрядчик предоставил ${quantity(materialNeed)} ед. материалов для проблемы «${problem.category}» по рыночной цене ${money(contractorMaterialCost)} ₽; склад не затронут.`);
-    }
-    if (!changeCapital(-contractorWork, "подрядные работы по проблеме дома")) return;
-    state.seasonFinancials.contractors += contractorWork;
-    addLog(`Подрядчик полностью устранил проблему «${problem.category}». Стоимость работ: ${money(contractorWork)} ₽${contractorSuppliesMaterials ? `; общая стоимость с материалами ${money(totalCost)} ₽.` : "; материалы оплачены отдельно."}`);
-    finishProblemRepair(problem);
-    saveState(); render(); showToast(`Проблема устранена подрядчиком: −${money(totalCost)} ₽`);
+    const project = problemProjectFor(state.houseProblems.find(item => item.id === problemId));
+    if (!project) return;
+    const bulk = stageSelection === "all";
+    const stages = bulk ? problemProjectRemainingStages(project) : [project.repairStages[Number(stageSelection)]];
+    if (!stages.length || stages.some(stage => !stage || !stage.materialPurchased)) { showToast("Сначала приобрети материалы для этапов."); return; }
+    if (isMaterialOnlyProblemCategory(project.category)) { showToast("Для этой категории достаточно обязательной покупки материалов."); return; }
+    const totalCost = bulk ? problemProjectContractorPrice(project) : problemStageContractorPrice(stages[0]);
+
+    if (!changeCapital(-totalCost, "подрядные работы по этапам ремонта дома")) return;
+    state.seasonFinancials.contractors += totalCost;
+    const count = stages.length;
+    const gross = stages.reduce((sum, stage) => sum + problemStageContractorWorkCost(stage), 0) + (Number(CONFIG.rules.problemRepairContractorCalloutFee) || 10);
+    const discountPercent = bulk ? Math.min(100, count * (Number(CONFIG.rules.problemRepairBulkDiscountPerStagePercent) || 2)) : 0;
+    addLog(`Подрядчик завершил ${count} этап(а/ов) категории «${project.category}» на доме «${project.houseName}»: база ${money(gross)} ₽${discountPercent ? `, скидка ${discountPercent}%` : " без скидки за объём"}; оплачено ${money(totalCost)} ₽. Материалы приобретены отдельно.`);
+    stages.forEach(stage => { stage.executionMethod = "contractor"; stage.tasks.forEach(task => { task.done = task.labor; }); });
+    for (const stage of stages) finishProblemRepair(project, stage);
+    saveState(); render(); showToast(`Подрядчик завершил ${count} этап(а/ов): −${money(totalCost)} ₽`);
   }
 
   function renderDevTools() {
@@ -1868,27 +2058,34 @@
     if (!definition) return;
     const problem = { id: `dev-problem-${state.turn}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, category: definition.category, wear: definition.wear, materialPurchased: false, repairProgress: {}, houseName: home.name, houseAddress: home.address };
     state.houseProblems.push(problem);
+    ensureProblemProjects();
     updateHouseSafetyStatus();
     addLog(`DEV: добавлена проблема «${problem.category}», износ ${problem.wear}%, дом «${home.name}» (${home.address}).`);
     saveState(); render(); showToast(`Проблема добавлена на дом «${home.name}»: ${problem.category}`);
   }
 
   function solveDevProblems(problemId) {
-    const problems = problemId === "all" ? [...state.houseProblems] : state.houseProblems.filter(problem => problem.id === problemId);
-    if (!problems.length) { showToast("Нет проблем для решения."); return; }
-    for (const problem of problems) {
-      state.houseProblems = state.houseProblems.filter(item => item.id !== problem.id);
-      if (!state.houseProblems.some(item => item.category === problem.category && item.houseName === problem.houseName)) state.reputation += 1;
+    ensureProblemProjects();
+    const selected = problemId === "all" ? problemProjects() : [problemProjectFor(state.houseProblems.find(problem => problem.id === problemId))].filter(Boolean);
+    const projects = [...new Map(selected.map(project => [project.id, project])).values()];
+    if (!projects.length) { showToast("Нет проблем для решения."); return; }
+    const ids = new Set();
+    let completedStages = 0;
+    for (const project of projects) {
+      problemProjectCards(project).forEach(card => ids.add(card.id));
+      completedStages += problemProjectRemainingStages(project).length;
     }
+    state.houseProblems = state.houseProblems.filter(item => !ids.has(item.id));
+    if (completedStages) changeReputation(completedStages);
     updateHouseSafetyStatus();
     if (!state.houseProblems.length && state.phase === "problems") state.phase = "drawing";
-    addLog(`DEV: бесплатно решено проблем ${problems.length}. Связанные заявки и компенсации остаются отдельными.`);
-    saveState(); render(); showToast(`Бесплатно решено проблем: ${problems.length}`);
+    addLog(`DEV: бесплатно решено проектов ${projects.length} (${completedStages} этапов). Связанные заявки и компенсации остаются отдельными.`);
+    saveState(); render(); showToast(`Бесплатно решено проектов: ${projects.length}`);
   }
 
   function runDevAction(action) {
-    if (action === "reputation-up") state.reputation += 1;
-    else if (action === "reputation-down") state.reputation -= 1;
+    if (action === "reputation-up") changeReputation(1);
+    else if (action === "reputation-down") changeReputation(-1);
     else if (action === "capital-up") changeCapital(10, "DEV: увеличение бюджета");
     else if (action === "capital-down") changeCapital(-10, "DEV: уменьшение бюджета");
     else if (["materials-down", "materials-zero", "materials-up"].includes(action)) {
@@ -1931,7 +2128,7 @@
     if (damageField) damageField.hidden = type !== "emergencyDamage";
     if (payoutField) payoutField.hidden = type !== "paid";
     if (materialField) materialField.hidden = type === "paid";
-    if (costHint) costHint.textContent = type === "paid" ? `Цена подрядчика: зарплата категории + ${money(CONFIG.economy.contractorMarkup)} ₽; материалы не нужны` : `Цена подрядчика: зарплата категории + материалы + ${money(CONFIG.economy.contractorMarkup)} ₽`;
+    if (costHint) costHint.textContent = type === "paid" ? `Цена подрядчика: трудозатраты × ставка категории + ${money(CONFIG.economy.contractorMarkup)} ₽ за выезд; материалы не нужны` : `Цена подрядчика: трудозатраты × ставка категории + выезд; материалы отдельно`;
   }
 
   function renderMarket() {
@@ -1970,9 +2167,11 @@
       const anchoredAdjustment = Number(employee.anchoredWithholdPercent) || 0;
       const withheldControl = !employee.deceased ? `<div class="withhold-control"><div class="withhold-slider-track"><div class="withhold-anchor-caption"><span><i>⚓</i> Постоянно</span><b>${anchoredAdjustment > 0 ? "Удержание" : anchoredAdjustment < 0 ? "Премия" : "Без изменений"} · ${Math.abs(anchoredAdjustment)}%</b></div><input class="withhold-range withhold-anchor-range" type="range" min="-50" max="50" step="1" value="${-anchoredAdjustment}" data-withhold-anchor="${escapeHtml(employee.id)}" aria-label="Постоянный процент удержания или премии"><div class="withhold-current-caption"><span>Ближайший ход</span><b><span class="withhold-adjustment-kind">${adjustmentKind}</span> · <span class="withhold-value">${Math.abs(adjustment)}</span>%</b></div><input class="withhold-range withhold-current-range" type="range" min="-50" max="50" step="1" value="${-adjustment}" data-withhold="${escapeHtml(employee.id)}" aria-label="Процент удержания или премии на ближайший ход"><button type="button" class="withhold-zero-marker" data-withhold-zero="${escapeHtml(employee.id)}" aria-label="Сбросить якорный и ближайший проценты в ноль">0</button></div><small class="withhold-mood-preview">После выплаты: ${projectedMood}</small></div>` : "";
       const individualWithheld = (employee.withheldAmount || 0) > 0 ? `<small class="withheld-employee-total">Удержано: ${money(employee.withheldAmount)} ₽</small><button type="button" class="pay-employee-withheld" data-pay-withheld-employee="${escapeHtml(employee.id)}" ${state.capital < employee.withheldAmount ? "disabled" : ""}>Выплатить этому сотруднику</button>` : "";
+      const loyaltyOffset = Number(employee.loyaltyAdjustmentBalance) || 0;
+      const loyaltyOffsetLabel = loyaltyOffset > 0 ? `<small class="loyalty-offset-note">Взаимозачёт премий: до ${money(loyaltyOffset)} ₽ удержаний</small>` : loyaltyOffset < 0 ? `<small class="loyalty-offset-note">Взаимозачёт удержаний: до ${money(Math.abs(loyaltyOffset) * 10)} ₽ премий</small>` : "";
       const fireButtons = employee.deceased ? `<button class="fire-button ${pending === "paid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "paid" ? "✓ " : ""}Выплатить последнюю зарплату</button><button class="fire-unpaid-button ${pending === "unpaid" ? "selected" : ""}" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>${pending === "unpaid" ? "✓ " : ""}Без выплаты</button>` : departure?.needsResponse && departure.reason === "health" ? `<button class="fire-button" data-treat-employee="${escapeHtml(employee.id)}">Лечение · ${money(currentSalary * 3)} ₽</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Не лечить · уйдёт</button>` : departure?.needsResponse && departure.reason === "dissatisfaction" ? `<button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="0">Выплатить удержания · шанс 50%</button><button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="50">Удержания + премия 50% · шанс 100%</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : departure?.needsResponse && departure.reason === "lowReputation" ? `<button class="fire-button" data-stay-outside="${escapeHtml(employee.id)}">Оставить с повышением ЗП</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : departure?.needsResponse ? `<button class="fire-button" data-stay-offer="${escapeHtml(employee.id)}" ${retentionRaiseUsed ? "disabled title=\"Повышение зарплаты этому сотруднику уже предлагали в этом году\"" : ""}>${retentionRaiseUsed ? "Повышение уже было в этом году" : `Оставить · +${hasHR() ? 10 : CONFIG.rules.employeeRetentionSalaryIncreasePercent}% ЗП`}</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : pending ? `<button class="fire-button" data-fire-cancel="${escapeHtml(employee.id)}">Вернуть в штат</button>` : `<button class="fire-button" data-fire="${escapeHtml(employee.id)}" data-pay="true" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · с выплатой</button><button class="fire-unpaid-button" data-fire="${escapeHtml(employee.id)}" data-pay="false" ${state.phase !== "staffing" ? "disabled" : ""}>В пул · без выплаты</button>`;
       const departureActions = departure?.needsResponse && departure.reason === "health" ? `<button class="fire-button" data-treat-employee="${escapeHtml(employee.id)}">Оплатить лечение · ${money(currentSalary * 3)} ₽</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Не оплачивать · уйдёт</button>` : departure?.needsResponse && departure.reason === "dissatisfaction" ? `<button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="0">Выплатить удержания</button><button class="fire-button" data-retain-loyal-employee="${escapeHtml(employee.id)}" data-premium="50">Премировать и удержать · +50%</button><button class="fire-unpaid-button" data-depart-offer="${escapeHtml(employee.id)}">Отпустить</button>` : fireButtons;
-      const card = `<article class="team-member role-${role.kind} team-mood-${mood} ${employee.deceased ? "team-deceased" : ""} ${departure ? "team-departing" : ""} ${employee.probationTurns > 0 ? "team-probation" : ""} ${pending ? "team-pending-fire" : ""}"><div class="worker-icon">${employee.deceased ? "🕯️" : role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>Роль: ${role.kind === "specialist" ? "Специалист" : "Исполнитель"}</span><span>${escapeHtml(employee.name || "Сотрудник")}</span><span>Возраст: ${quantity(employee.age || 0)} лет</span><span>ЗП: ${money(currentSalary)} ₽ / ход${employee.probationTurns > 0 ? " · половина ставки" : ""}</span><span>${detail}</span>${employee.bonusDescription ? `<span>${escapeHtml(employee.bonusDescription)}</span>` : ""}${probation}<span>${years} ${years === 1 ? "год" : years > 1 && years < 5 ? "года" : "лет"} в компании</span>${withheldControl}${individualWithheld}</div><span class="worker-status ${mood} ${employee.deceased ? "deceased" : departure ? "departing" : ""}">${pending && !employee.deceased ? `В пуле на увольнение · ${pending === "paid" ? "с выплатой" : "без выплаты"}` : status}</span><div class="fire-actions">${departureActions}</div></article>`;
+      const card = `<article class="team-member role-${role.kind} team-mood-${mood} ${employee.deceased ? "team-deceased" : ""} ${departure ? "team-departing" : ""} ${employee.probationTurns > 0 ? "team-probation" : ""} ${pending ? "team-pending-fire" : ""}"><div class="worker-icon">${employee.deceased ? "🕯️" : role.icon}</div><div class="worker-info"><strong>${heading}</strong><span>Роль: ${role.kind === "specialist" ? "Специалист" : "Исполнитель"}</span><span>${escapeHtml(employee.name || "Сотрудник")}</span><span>Возраст: ${quantity(employee.age || 0)} лет</span><span>ЗП: ${money(currentSalary)} ₽ / ход${employee.probationTurns > 0 ? " · половина ставки" : ""}</span><span>${detail}</span>${employee.bonusDescription ? `<span>${escapeHtml(employee.bonusDescription)}</span>` : ""}${probation}<span>${years} ${years === 1 ? "год" : years > 1 && years < 5 ? "года" : "лет"} в компании</span>${withheldControl}${individualWithheld}${loyaltyOffsetLabel}</div><span class="worker-status ${mood} ${employee.deceased ? "deceased" : departure ? "departing" : ""}">${pending && !employee.deceased ? `В пуле на увольнение · ${pending === "paid" ? "с выплатой" : "без выплаты"}` : status}</span><div class="fire-actions">${departureActions}</div></article>`;
       return [employee.id, card];
     }));
     const roleOrders = { specialist: ["lawyer", "accountant", "hr", "engineer", "marketer"], executor: ["plumber", "electrician", "handyman", "janitor"] };
@@ -1999,6 +2198,7 @@
       if (employee) workerInfo.querySelector(".withhold-mood-preview").textContent = `После выплаты: ${projectedWithholdingMood(employee, adjustment)}`;
       const retentionButton = slider.closest(".team-member")?.querySelector('[data-departure-reason="outsideOffer"]');
       if (employee && retentionButton) retentionButton.textContent = `Премировать и удержать · ${money(outsideOfferRetentionPayment(employee, adjustment))} ₽ · шанс 50%`;
+      renderPhaseContext();
     }));
     elements.team.querySelectorAll("[data-withhold]").forEach(slider => slider.addEventListener("change", () => {
       const employee = state.employees.find(item => item.id === slider.dataset.withhold);
@@ -2089,6 +2289,8 @@
     const allRows = [...fines, ...compensations, ...courtRows.filter(row => row.active)];
     const completedCourtRows = courtRows.filter(row => row.completed).sort((a, b) => b.resolvedTurn - a.resolvedTurn);
     const activeRows = allRows.filter(row => !row.paid && !row.writtenOff && row.active !== false);
+    const compactDisclosure = document.getElementById("penalties-compact-disclosure");
+    if (compactDisclosure) compactDisclosure.hidden = activeRows.length === 0;
     const hiddenPaid = allRows.filter(row => row.paid).length;
     const hiddenWrittenOff = allRows.filter(row => row.writtenOff && !row.paid).length;
     const fullRows = allRows.filter(row => row.paid ? showPaidPenalties : !row.writtenOff || showWrittenOffPenalties);
@@ -2179,7 +2381,7 @@
       const price = amount * materialUnitCost(true);
       return `<article class="legal-option engineer-material-option"><div><strong>Инженер ${escapeHtml(engineer.name)} · закупить материалы</strong><span>До ${maxUnits} ед. по себестоимости · ${money(materialUnitCost(true))} ₽/ед. · запас сейчас ${quantity(state.materialStock)} ед.</span></div><label class="engineer-quantity-label">Количество: <output data-engineer-units>${amount}</output> ед.<input type="range" min="1" max="${maxUnits}" step="1" value="${amount}" data-engineer-quantity aria-label="Количество закупаемого материала"></label><button type="button" class="legal-action-button" data-engineer-buy="${escapeHtml(engineer.id)}" ${used || state.capital < price ? "disabled" : ""}>Купить</button><strong class="engineer-total-cost" data-engineer-total>Итого: ${money(price)} ₽</strong></article>`;
     }).join("");
-    elements.legalPanel.innerHTML = `${lawyers.some(lawyer => !state.lawyerActionsUsed.includes(lawyer.id) && lawyerHasAvailableTask(lawyer)) ? `<div class="legal-heading"><div><p class="section-label">ЗАДАЧИ ЮРИСТАМ</p><h2>Одно поручение на каждого юриста</h2></div><span class="legal-mark">§</span></div><p class="legal-copy">Штрафы можно только оспорить. По компенсации в суде юрист может оспорить сумму или один раз за ход попытаться отложить заседание. Одно обязательство можно оспорить только один раз.</p><div class="legal-options">${lawyerBlocks}</div>` : ""}${engineers.length ? `<div class="legal-heading engineer-material-heading"><div><p class="section-label">ДЕЙСТВИЕ ИНЖЕНЕРА</p><h2>Закупить материалы по себестоимости</h2></div><span class="legal-mark">⚙</span></div><div class="legal-options">${engineerBlocks}</div>` : ""}${lawyers.length && lawyersDone() ? '<div class="legal-complete">Все доступные поручения выполнены. Переходи к выплате зарплат.</div>' : ""}`;
+    elements.legalPanel.innerHTML = `${lawyers.some(lawyer => !state.lawyerActionsUsed.includes(lawyer.id) && lawyerHasAvailableTask(lawyer)) ? `<div class="legal-heading"><div><p class="section-label">ЗАДАЧИ ЮРИСТАМ</p><h2>Одно поручение на каждого юриста</h2></div><span class="legal-mark">§</span></div><p class="legal-copy">Штрафы можно только оспорить. По компенсации в суде юрист может оспорить сумму или один раз за ход попытаться отложить заседание. Одно обязательство можно оспорить только один раз.</p><div class="legal-options">${lawyerBlocks}</div>` : ""}${engineers.length ? `<div class="legal-heading engineer-material-heading"><div><p class="section-label">ДЕЙСТВИЕ ИНЖЕНЕРА</p><h2>Закупить материалы по себестоимости</h2></div><span class="legal-mark">⚙</span></div><div class="legal-options">${engineerBlocks}</div>` : ""}${lawyers.length && lawyersDone() ? '<div class="legal-complete">Если не хочешь назначать поручения специалистам, то переходи к выплате следующему этапу</div>' : ""}`;
     elements.legalPanel.querySelectorAll('[data-lawyer="debt"]').forEach(button => button.addEventListener("click", () => collectHouseDebt(button.dataset.lawyerId)));
     elements.legalPanel.querySelectorAll('[data-lawyer="reduce"]').forEach(button => button.addEventListener("click", () => reduceLiability(button.dataset.targetType, button.dataset.targetId, button.dataset.lawyerId)));
     elements.legalPanel.querySelectorAll("[data-lawyer-delay]").forEach(button => button.addEventListener("click", () => postponeCompensationCase(button.dataset.lawyerDelay, button.dataset.lawyerId)));
@@ -2334,7 +2536,9 @@
 
   function renderRequests() {
     const priority = card => card.resolved || card.cancelled ? 3 : card.type === "paid" ? 0 : isEmergency(card) ? 1 : 2;
-    const sortedRequests = state.requests.map((card, index) => ({ card, index })).sort((left, right) => priority(left.card) - priority(right.card) || left.index - right.index);
+    const requestDisclosure = document.getElementById("requests-disclosure");
+    const visibleRequests = state.phase === "resolving" ? state.requests : state.requests.filter(card => !card.resolved && !card.cancelled);
+    const sortedRequests = visibleRequests.map((card, index) => ({ card, index })).sort((left, right) => priority(left.card) - priority(right.card) || left.index - right.index);
     const requestMarkup = sortedRequests.map(({ card, index }) => {
       const cashPrice = requestMoneyCost(card);
       const materialUnits = requestMaterialUnits(card);
@@ -2449,6 +2653,7 @@
     if (unresolved.length) addLog(`Перед годовым отчётом автоматически отменены все невыполненные заявки: ${unresolved.length}.`);
     return unresolved;
   }
+  function changeReputation(delta) { state.reputation = Math.max(-50, Math.min(50, state.reputation + delta)); return state.reputation; }
   function applyAnnualReputation() {
     const cancellationPenalty = Math.floor(reputationCancellationCount(state.year) / CONFIG.rules.cancellationReputationPenaltyEvery);
     const marketerBonus = activeEmployees().filter(employee => employee.role === "marketer").length + employeeBonusCount("marketer", "annualReputationThree") * 3;
@@ -2459,7 +2664,7 @@
     const changes = { cancellationPenalty, marketerBonus, unsafeHousePenalty, solvencyBonus, cleanHouseBonus };
     const delta = -cancellationPenalty - (unsafePenaltyAlreadyApplied ? 0 : unsafeHousePenalty) + marketerBonus + solvencyBonus + cleanHouseBonus;
     const start = state.reputation;
-    state.reputation += delta;
+    changeReputation(delta);
     if (state.financialHistory.length) state.financialHistory[state.financialHistory.length - 1].reputation = state.reputation;
     return { start, delta, changes };
   }
@@ -2467,7 +2672,8 @@
     return Number.isFinite(state.lastAnnualReport?.reputation?.end) ? state.lastAnnualReport.reputation.end : CONFIG.economy.startingReputation;
   }
 
-  function checkBankruptcy() {
+  function checkBankruptcy(afterCollection = false) {
+    if (!afterCollection || state.phase !== "collection") return false;
     if (state.capital <= BANKRUPTCY_THRESHOLD && state.phase !== "bankruptcy") {
       state.phase = "bankruptcy";
       state.bankruptcyBalance = state.capital;
@@ -2516,11 +2722,12 @@
     state.problemDeck = makeProblemDeck();
     state.collectionStats = { ...INITIAL_STATE.collectionStats };
     state.lastCollectionRate = null;
+    state.houseCollectionHistory = {};
     state.primaryCollectionStats = { ...INITIAL_STATE.collectionStats }; state.primaryLastCollectionRate = null;
     state.capital = CONFIG.economy.startingCapital;
     state.materialStock = 0;
     state.engineerMaterialsUsed = [];
-    state.reputation = CONFIG.rules.bankruptcyStartingReputation;
+    state.reputation = Math.max(-50, Math.min(50, CONFIG.rules.bankruptcyStartingReputation));
     state.houseUnsafeSinceYear = null; state.houseUnsafeSinceTurn = null; state.houseUnsafeCategory = null; state.houseUnsafeReasons = []; state.unsafeHousePenaltyYear = null; state.houseRemoved = false;
     state.requests = [];
     state.ossVoteTurn = state.turn; state.ossVoteUsedCategories = [];
@@ -2687,7 +2894,7 @@
   function buyReputation() {
     const cost = CONFIG.rules.badGameReputationPrice ?? 20;
     if (!state.badGameMode || state.founderAccount < cost || ["gameOver", "annualReport", "bankruptcy"].includes(state.phase)) { showToast(`Для покупки репутации нужно ${money(cost)} ₽ на личном счёте учредителя.`); return; }
-    state.founderAccount -= cost; state.reputation += 1;
+    state.founderAccount -= cost; changeReputation(1);
     addLog(`В режиме «Плохая игра» куплена 1 репутация за ${money(cost)} ₽.`);
     saveState(); render(); showToast(`Репутация увеличена на 1 за ${money(cost)} ₽ со счёта учредителя.`);
   }
@@ -2730,13 +2937,13 @@
       const complaintChance = complaintProbability(moodComplaintChance(employee));
       if (employee.deceased) {
         if (action === "paid") { changeCapital(-finalSalary, "последняя зарплата умершего сотрудника"); addLog(`Закрыт расчёт с умершим сотрудником ${employee.name}: выплачена последняя зарплата ${money(finalSalary)} ₽.`); }
-        else { state.reputation -= 1; addLog(`Закрыт расчёт с умершим сотрудником ${employee.name}: последняя зарплата семье не выплачена, репутация −1.`); }
+        else { changeReputation(-1); addLog(`Закрыт расчёт с умершим сотрудником ${employee.name}: последняя зарплата семье не выплачена, репутация −1.`); }
         continue;
       }
       if (action === "paid") { changeCapital(-finalSalary, "последняя зарплата при увольнении"); addLog(`Сотрудник уволен: ${roleName(employee.role)}. Выплачена последняя зарплата ${money(finalSalary)} ₽.`); }
       else {
         employee.loyalty = -10; employee.mood = "veryDissatisfied";
-        if (employee.probationTurns <= 0) state.reputation -= CONFIG.rules.unpaidFiringReputationPenalty;
+        if (employee.probationTurns <= 0) changeReputation(-CONFIG.rules.unpaidFiringReputationPenalty);
         addLog(`Сотрудник уволен без выплаты: ${roleName(employee.role)}; настроение «Очень недоволен»${employee.probationTurns <= 0 ? "; репутация −1" : " (испытательный срок)"}.`);
       }
       if (complaintChance > 0 && Math.random() < complaintChance) {
@@ -2751,7 +2958,7 @@
   function legacyFireCodeUnused(employee, payLastSalary) {
     const finalSalary = effectiveSalary(employee);
     if (payLastSalary) changeCapital(-finalSalary, "последняя зарплата при увольнении");
-    else state.reputation -= 1;
+    else changeReputation(-1);
     countEvent("fired");
     let complaintFine = null;
     if (payLastSalary) {
@@ -2837,7 +3044,7 @@
     const paymentTurns = CONFIG.rules.compensationPaymentTurns ?? 4;
     state.legalCases.filter(caseFile => caseFile.caseType === "forgedHouse" && caseFile.status === "trial").forEach(caseFile => {
       const ongoingReputationPenalty = CONFIG.rules.badGameForgeryOngoingReputationPenalty ?? 1;
-      state.reputation -= ongoingReputationPenalty;
+      changeReputation(-ongoingReputationPenalty);
       seasonLog.push(`Дело о подделке подписей по дому «${caseFile.houseName}» остаётся в суде: репутация −${ongoingReputationPenalty} за этот ход.`);
     });
     state.compensations.forEach(claim => {
@@ -2973,17 +3180,14 @@
     const yesArea = latest ? Number.isFinite(latest.yesArea) ? latest.yesArea : Math.min(latest.area || 0, Math.max(0, (latest.area || 0) / 5 * (latest.die || 0) + (latest.specialistModifier || 0) + (latest.reputationModifier || 0) + (latest.resultBonus || 0))) : 0;
     const againstArea = latest ? Number.isFinite(latest.againstArea) ? latest.againstArea : Math.max(0, (latest.area || 0) - yesArea) : 0;
     const fillPercent = value => latest?.area > 0 ? `${Math.max(0, Math.min(100, value / latest.area * 100))}%` : "0%";
-    const calcRows = latest ? `<div class="oss-calc-inputs"><b>Исходные данные</b><span>Площадь дома: ${money(latest.area)} м²</span><span>Репутация игрока: ${latest.reputation ?? "—"}</span><span>Отменённые заявки: ${latest.cancelledRequests}</span><span>Проблемы категории: ${latest.resultBonus || 0}</span><span>Модификаторы специалистов: ${money(latest.specialistModifier)}</span><span>Модификатор вопроса X: ${money(latest.questionModifier || 0)}</span><span>Бросок d6: ${latest.die}</span></div><div class="oss-calc-formula"><b>Расчёт</b><span>Результат: ${latest.area}/5 × ${latest.die} + ${money(latest.specialistModifier)}${latest.reputationModifier ? ` + ${money(latest.reputationModifier)}` : ""}${latest.resultBonus ? ` + ${latest.resultBonus}` : ""} = <strong>${money(latest.result)}</strong></span><span>Порог: ${latest.area}/2${latest.thresholdModifier ? ` + ${latest.thresholdModifier}` : ""}${latest.cancelledMultiplier ? ` + ${latest.cancelledRequests} × ${latest.cancelledMultiplier}` : ""}${latest.questionModifier ? ` + ${money(latest.questionModifier)}` : ""} = <strong>${money(latest.threshold)}</strong></span><strong class="oss-verdict ${latest.success ? "accepted" : "rejected"}" aria-label="${latest.success ? "ОСС принято" : "ОСС не принято"}">${latest.success ? "✓" : "×"}</strong></div>` : "";
-    const animation = latest ? `<div class="oss-vote-animation"><div class="oss-vote-house" role="img" aria-label="Площадь за ${money(yesArea)} м², против ${money(againstArea)} м²"><span class="oss-house-fill oss-fill-yes" style="height:${fillPercent(yesArea)}"></span><span class="oss-house-fill oss-fill-against" style="height:${fillPercent(againstArea)};bottom:${fillPercent(yesArea)}"></span><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M5 42 50 5l45 37h-9v53H14V42Z"/></svg></div><div class="oss-vote-legend"><strong>${escapeHtml(latest.question)}</strong><span><i class="legend-yes"></i>За: ${money(yesArea)} м² · ${fillPercent(yesArea)}</span><span><i class="legend-against"></i>Против: ${money(againstArea)} м² · ${fillPercent(againstArea)}</span></div>${calcRows}</div>` : "";
+    const calcRows = latest ? `<div class="oss-calc-inputs"><b>Исходные данные</b><span>Площадь: ${money(latest.area)} м²</span><span>Репутация: ${latest.reputation ?? "—"}</span><span>Отменённые заявки: ${latest.cancelledRequests}</span><span>Проблемы категории: ${latest.resultBonus || 0}</span><span>Модификаторы специалистов: ${money(latest.specialistModifier)}</span><span>Модификатор вопроса X: ${money(latest.questionModifier || 0)}</span><span>Бросок d6: ${latest.die}</span></div><div class="oss-calc-formula"><b>Расчёт</b><span>Результат: ${latest.area}/5 × ${latest.die} + ${money(latest.specialistModifier)}${latest.reputationModifier ? ` + ${money(latest.reputationModifier)}` : ""}${latest.resultBonus ? ` + ${latest.resultBonus}` : ""} = <strong>${money(latest.result)}</strong></span><span>Порог: ${latest.area}/2${latest.thresholdModifier ? ` + ${latest.thresholdModifier}` : ""}${latest.cancelledMultiplier ? ` + ${latest.cancelledRequests} × ${latest.cancelledMultiplier}` : ""}${latest.questionModifier ? ` + ${money(latest.questionModifier)}` : ""} = <strong>${money(latest.threshold)}</strong></span><strong class="oss-verdict ${latest.success ? "accepted" : "rejected"}" aria-label="${latest.success ? "ОСС принято" : "ОСС не принято"}">${latest.success ? "✓" : "×"}</strong></div>` : "";
+    const latestVote = latest ? `<article class="oss-latest-vote"><div class="oss-latest-summary"><h3>${escapeHtml(latest.question)}${latest.houseAddress ? ` · ${escapeHtml(latest.houseAddress)}` : ""}</h3><div class="oss-latest-distribution"><div class="oss-vote-house" role="img" aria-label="Площадь за ${money(yesArea)} м², против ${money(againstArea)} м²"><span class="oss-house-fill oss-fill-yes" style="height:${fillPercent(yesArea)}"></span><span class="oss-house-fill oss-fill-against" style="height:${fillPercent(againstArea)};bottom:${fillPercent(yesArea)}"></span><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M5 42 50 5l45 37h-9v53H14V42Z"/></svg></div><div class="oss-vote-legend"><span><i class="legend-yes"></i>За: ${money(yesArea)} м² · ${fillPercent(yesArea)}</span><span><i class="legend-against"></i>Против: ${money(againstArea)} м² · ${fillPercent(againstArea)}</span></div></div></div><div class="oss-latest-details">${calcRows}</div></article>` : "";
     if (state.lastOssAnimationId && latest?.id === state.lastOssAnimationId) {
       disclosure.open = true;
       state.lastOssAnimationId = null;
     }
-    list.innerHTML = `${animation}<ol>${state.ossHistory.map(record => {
-      const result = `${record.area}/5 × ${record.die} + ${money(record.specialistModifier)}${record.reputationModifier ? ` + ${money(record.reputationModifier)}` : ""}${record.resultBonus ? ` + ${record.resultBonus}` : ""} = ${money(record.result)}`;
-      const threshold = `${record.area}/2${record.thresholdModifier ? ` + ${record.thresholdModifier}` : ""}${record.cancelledMultiplier ? ` + ${record.cancelledRequests} × ${record.cancelledMultiplier}` : ""}${record.questionModifier ? ` + ${money(record.questionModifier)}` : ""} = ${money(record.threshold)}`;
-      return `<li><strong>${escapeHtml(record.question)}${record.houseAddress ? ` · ${escapeHtml(record.houseAddress)}` : ""}</strong><span>Входные данные: площадь ${record.area} м² · репутация ${record.reputation ?? "—"} · отмены ${record.cancelledRequests} · проблемы категории ${record.resultBonus || 0} · специалисты ${money(record.specialistModifier)} · X ${money(record.questionModifier || 0)} · d6=${record.die}</span><span>Результат: ${result} ${record.success ? "≥" : "<"} порог: ${threshold} · <b class="oss-verdict-inline ${record.success ? "accepted" : "rejected"}">${record.success ? "✓ принято" : "× не принято"}</b></span></li>`;
-    }).join("")}</ol>`;
+    const previousVotes = state.ossHistory.slice(1).map(record => `<li><strong>${escapeHtml(record.question)}${record.houseAddress ? ` · ${escapeHtml(record.houseAddress)}` : ""}</strong><span>Результат ${money(record.result)} / порог ${money(record.threshold)} · <b class="oss-verdict-inline ${record.success ? "accepted" : "rejected"}">${record.success ? "Принято" : "Не принято"}</b></span></li>`).join("");
+    list.innerHTML = `${latestVote}${previousVotes ? `<ol class="oss-previous-votes">${previousVotes}</ol>` : ""}`;
   }
 
   function skipTariffOss(houseName) {
@@ -3022,7 +3226,7 @@
     const homeCancelled = state.cancelledRequests.filter(card => card.houseName === home.name).length;
     const cappedRequest = requestedChange > change;
     const voteQuestion = `${direction} тариф на ${money(Math.abs(change))} ₽${cappedRequest ? ` (запрошено ${money(requestedChange)} ₽)` : ""}`;
-    const vote = ossVote(voteQuestion, change, { includeReputation: true, area: home.area, cancelledCountOverride: homeCancelled, cancelledMultiplier: 2, logHouseAddress: home.address });
+    const vote = ossVote(voteQuestion, change, { includeReputation: true, area: home.area, cancelledCountOverride: homeCancelled, cancelledMultiplier: 0.01, logHouseAddress: home.address });
     setHomeField(home, "tariffOssResolvedYear", state.year);
     if (vote.success) {
       setHomeField(home, "tariffPerSquareMeter", Math.round((currentTariff(home) + change) * 100) / 100);
@@ -3037,7 +3241,7 @@
 
   function resolveOssCapitalRepair(category, houseName = state.houseName) {
     const voteKey = `${houseName}:${category}`;
-    if (state.phase !== "drawing" || state.ossVoteUsedCategories.includes(voteKey)) return;
+    if (!(["drawing", "problems"].includes(state.phase)) || state.ossVoteUsedCategories.includes(voteKey)) return;
     const home = managedHomeByName(houseName);
     if (!home) return;
     const categoryProblems = state.houseProblems.filter(problem => problem.category === category && problem.houseName === houseName);
@@ -3047,6 +3251,7 @@
     const vote = ossVote(`Капитальный ремонт: ${category}`, 0, { area: home.area, cancelledCountOverride: homeCancelled, resultBonus: categoryProblems.length, thresholdModifier: 1, logHouseAddress: home.address });
     state.ossVoteUsedCategories.push(voteKey);
     if (vote.success) {
+      const completedStageCount = problemProjects().filter(project => project.houseName === houseName && project.category === category).reduce((sum, project) => sum + problemProjectRemainingStages(project).length, 0);
       const repairedProblemIds = new Set(categoryProblems.map(problem => problem.id));
       const resolvedRequests = state.requests.filter(card => !card.resolved && !card.cancelled && card.problemCategory === category && repairedProblemIds.has(card.problemId));
       resolvedRequests.forEach(card => completeRequest(card, "oss"));
@@ -3054,10 +3259,11 @@
       const repairWarranty = { repairedTurn: state.turn, expiresTurn: state.turn + SEASONS.length * (CONFIG.rules.warrantyAgeYears ?? 3) * state.seasonDuration - 1 };
       if (home.primary) state.houseRepairWarranties[category] = repairWarranty;
       else home.repairWarranties[category] = repairWarranty;
-      state.reputation += CONFIG.rules.clearedProblemCategoryReputationBonus;
+      changeReputation(completedStageCount);
       const outstandingCompensations = state.compensations.filter(claim => resolvedRequests.some(card => card.id === claim.requestId) && !claim.paid && !claim.writtenOff).reduce((sum, claim) => sum + claim.amount, 0);
-      addLog(`ОСС приняло капитальный ремонт категории «${category}». Устранено проблем: ${categoryProblems.length}; автоматически выполнено связанных заявок: ${resolvedRequests.length}. Штрафы и компенсации сохранены${outstandingCompensations ? ` (компенсации к выплате: ${money(outstandingCompensations)} ₽)` : ""}. Репутация +${CONFIG.rules.clearedProblemCategoryReputationBonus}.`);
+      addLog(`ОСС приняло капитальный ремонт категории «${category}». Устранено проблем: ${categoryProblems.length}; завершено этапов ремонта: ${completedStageCount}; автоматически выполнено связанных заявок: ${resolvedRequests.length}. Штрафы и компенсации сохранены${outstandingCompensations ? ` (компенсации к выплате: ${money(outstandingCompensations)} ₽)` : ""}. Репутация +${completedStageCount}.`);
       updateHouseSafetyStatus();
+      if (state.phase === "problems" && !state.houseProblems.length) state.phase = "drawing";
     } else {
       home.capitalRepairOssRetryTurn = home.capitalRepairOssRetryTurn || {};
       home.capitalRepairOssRetryTurn[category] = state.turn + 1;
@@ -3072,24 +3278,6 @@
     const panel = document.getElementById("oss-agenda-panel");
     container.innerHTML = "";
     if (state.phase !== "drawing" && state.phase !== "problems") { if (panel) panel.hidden = true; return; }
-    const seen = new Set();
-    if (state.phase === "drawing") state.houseProblems.forEach(problem => {
-      const houseName = problem.houseName || state.houseName;
-      const voteKey = `${houseName}:${problem.category}`;
-      if (seen.has(voteKey)) return;
-      const retryTurn = managedHomeByName(houseName)?.capitalRepairOssRetryTurn?.[problem.category] || 0;
-      if (retryTurn > state.turn || state.ossVoteUsedCategories.includes(voteKey)) return;
-      seen.add(voteKey);
-      const categoryProblems = state.houseProblems.filter(item => item.category === problem.category && item.houseName === houseName);
-      const wear = categoryProblems.reduce((sum, item) => sum + item.wear, 0);
-      if (wear < (CONFIG.oss?.capitalRepairWearThresholdPercent ?? 60)) return;
-      const home = managedHomeByName(houseName);
-      const button = document.createElement("button");
-      button.type = "button"; button.className = "oss-repair-button"; button.dataset.ossCapitalRepair = problem.category;
-      button.textContent = `Провести ОСС капремонта: ${problem.category} · ${home?.address || houseName} · износ ${wear}%`;
-      button.addEventListener("click", () => resolveOssCapitalRepair(problem.category, houseName));
-      container.append(button);
-    });
     if (state.phase === "problems" && (hasLawyer() || hasEngineer())) {
       const warrantyGroups = [];
       for (const home of managedHomes()) {
@@ -3133,12 +3321,14 @@
     const success = Math.random() < successChance;
     const coveredIds = new Set(problemIds);
     const affected = state.houseProblems.filter(problem => coveredIds.has(problem.id));
+    const completedStageCount = problemProjects().filter(project => problemProjectCards(project).some(card => coveredIds.has(card.id))).reduce((sum, project) => sum + problemProjectRemainingStages(project).length, 0);
     addLog(`Суд по гарантии: юрист ${lawyer.name}, ЮС ${legalStrength}; госпошлина −${money(fee)} ₽; вероятность успеха ${Math.round(successChance * 100)}%; решение ${success ? "в пользу УК" : "отказ"}.`);
     if (success) {
       changeCapital(fee, "возврат госпошлины по выигранному гарантийному делу");
       state.seasonFinancials.problemRepairs = Math.max(0, state.seasonFinancials.problemRepairs - fee);
       addLog(`Суд выигран: госпошлина ${money(fee)} ₽ возвращена компании.`);
       const categories = new Set(affected.map(problem => problem.category));
+      changeReputation(completedStageCount);
       const resolvedRequests = state.requests.filter(card => !card.resolved && !card.cancelled && coveredIds.has(card.problemId));
       resolvedRequests.forEach(card => completeRequest(card, "warranty"));
       const relatedRequests = state.requests.filter(card => coveredIds.has(card.problemId));
@@ -3153,7 +3343,7 @@
         if (home.primary) state.houseWarrantyUntilTurn = state.turn + SEASONS.length * (CONFIG.rules.warrantyAgeYears ?? 3) * state.seasonDuration - 1;
         else home.warrantyUntilTurn = state.turn + SEASONS.length * (CONFIG.rules.warrantyAgeYears ?? 3) * state.seasonDuration - 1;
       }
-      addLog(`По гарантии устранено проблем: ${affected.length}; связанных заявок закрыто: ${resolvedRequests.length}; компенсации по ${state.compensations.filter(claim => (claims.has(claim.requestId) || coveredIds.has(claim.problemId)) && claim.paidBy === "developer").length} случаям ущерба сняты застройщиком; штрафов по заявкам этой проблемы списано: ${state.penalties.filter(penalty => (claims.has(penalty.requestId) || coveredIds.has(penalty.problemId)) && penalty.writtenOffBy === "developer").length}. Работы запускают новый гарантийный срок.`);
+      addLog(`По гарантии устранено проблем: ${affected.length}; завершено этапов ремонта: ${completedStageCount}; репутация +${completedStageCount}; связанных заявок закрыто: ${resolvedRequests.length}; компенсации по ${state.compensations.filter(claim => (claims.has(claim.requestId) || coveredIds.has(claim.problemId)) && claim.paidBy === "developer").length} случаям ущерба сняты застройщиком; штрафов по заявкам этой проблемы списано: ${state.penalties.filter(penalty => (claims.has(penalty.requestId) || coveredIds.has(penalty.problemId)) && penalty.writtenOffBy === "developer").length}. Работы запускают новый гарантийный срок.`);
       updateHouseSafetyStatus();
       if (!state.houseProblems.length) state.phase = "drawing";
     }
@@ -3370,14 +3560,28 @@
     state.employees.forEach(employee => {
       if (employee.deceased) return;
       const before = loyaltyOf(employee), adjustment = Number(employee.withholdPercent) || 0;
+      const gross = effectiveSalary(employee);
+      let balance = Number(employee.loyaltyAdjustmentBalance) || 0;
       if (adjustment > 0) {
         employee.loyaltyQuietStreak = 0;
-        if (Math.random() < adjustment / 100) changeLoyalty(employee, -1);
-        logs.push(`${employee.name}: удержание ${adjustment}% — лояльность ${before} → ${loyaltyOf(employee)}.`);
+        const amount = Math.round(gross * adjustment) / 100;
+        const offset = Math.min(amount, Math.max(0, balance));
+        const exposed = Math.max(0, amount - offset);
+        balance = Math.round((balance - amount) * 100) / 100;
+        employee.loyaltyAdjustmentBalance = balance;
+        const chancePercent = gross > 0 ? exposed / gross * 100 * 1.5 : 0;
+        if (Math.random() < boundedProbability(chancePercent)) changeLoyalty(employee, -1);
+        logs.push(`${employee.name}: удержание ${adjustment}% (${money(amount)} ₽), взаимозачёт покрыл ${money(offset)} ₽; шанс снижения лояльности ${Math.round(chancePercent * 100) / 100}% — ${before} → ${loyaltyOf(employee)}.`);
       } else if (adjustment < 0) {
         employee.loyaltyQuietStreak = 0;
-        if (Math.random() < Math.abs(adjustment) / 100) changeLoyalty(employee, 1);
-        logs.push(`${employee.name}: премия ${Math.abs(adjustment)}% — лояльность ${before} → ${loyaltyOf(employee)}.`);
+        const amount = Math.round(gross * Math.abs(adjustment)) / 100;
+        const offset = Math.min(amount, Math.max(0, -balance * 10));
+        const exposed = Math.max(0, amount - offset);
+        balance = Math.round((balance + amount / 10) * 100) / 100;
+        employee.loyaltyAdjustmentBalance = balance;
+        const chancePercent = gross > 0 ? exposed / gross * 100 * 2 : 0;
+        if (Math.random() < boundedProbability(chancePercent)) changeLoyalty(employee, 1);
+        logs.push(`${employee.name}: премия ${Math.abs(adjustment)}% (${money(amount)} ₽), взаимозачёт покрыл ${money(offset)} ₽; шанс повышения лояльности ${Math.round(chancePercent * 100) / 100}% — ${before} → ${loyaltyOf(employee)}.`);
       } else if (!employee.unpaidOvertime && (employee.withheldAmount || 0) <= 0) {
         const recovered = neutralLoyaltyRecovery(employee);
         logs.push(recovered ? `${employee.name}: после периода без удержаний лояльность ${before} → ${loyaltyOf(employee)}.` : `${employee.name}: без доплат и удержаний (${employee.loyaltyQuietStreak} ход подряд), лояльность ${loyaltyOf(employee)}.`);
@@ -3390,7 +3594,6 @@
       employee.mood = moodOf(employee);
     });
   }
-
   function collectSeason() {
     if (state.phase !== "collection") return;
     const seasonLog = [];
@@ -3416,17 +3619,14 @@
     if (!changeCapital(-maintenance, "базовое обслуживание")) return;
     state.seasonFinancials.upkeep += maintenance;
     if (maintenance) seasonLog.push(`Оплачено базовое обслуживание: −${money(maintenance)} ₽.`);
-    if (checkBankruptcy()) {
-      addLogSequence(seasonLog);
-      saveState(); render(); showToast(`После обязательных расходов баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Необходимо объявить банкротство.`);
-      return;
-    }
     const maximumCollectionRate = Math.min(100, CONFIG.economy.collectionMaxPercent);
     const accountantCollectionBonuses = activeEmployees().filter(employee => employee.role === "accountant" && employee.bonus === "raiseCollection");
     const houseResults = homes.map(home => {
-      const baseRate = CONFIG.economy.collectionMinPercent + Math.floor(Math.random() * (CONFIG.economy.collectionMaxPercent - CONFIG.economy.collectionMinPercent + 1));
+      const natural = nextNaturalCollectionRate(home);
+      const baseRate = natural.rate;
       let rate = Math.min(maximumCollectionRate, baseRate);
-      seasonLog.push(`Дом «${home.name}» (${home.address}): собираемость выпала ${baseRate}%.`);
+      if (natural.previous === null) seasonLog.push(`Дом «${home.name}» (${home.address}): первое естественное значение собираемости ${baseRate}% (диапазон 50–80%).`);
+      else seasonLog.push(`Дом «${home.name}» (${home.address}): естественная собираемость ${natural.previous}% → ${baseRate}% (${natural.change > 0 ? "+" : ""}${natural.change} п.п.; сезонный тренд и состояние дома учтены).`);
       accountantCollectionBonuses.forEach(employee => {
         const increase = Math.max(0, Math.min(CONFIG.rules.accountantCollectionBonusPercent, maximumCollectionRate - rate));
         if (increase > 0) {
@@ -3437,6 +3637,9 @@
       });
       const billed = home.area * currentTariff(home);
       const collected = Math.round(billed * rate / 100);
+      const collectionHistory = state.houseCollectionHistory[home.name] ||= [];
+      collectionHistory.push({ turn: state.turn, year: state.year, seasonIndex: state.seasonIndex, seasonTurnIndex: state.seasonTurnIndex, naturalRate: baseRate, rate });
+      if (collectionHistory.length > 200) collectionHistory.splice(0, collectionHistory.length - 200);
       return { home, rate, billed, collected, unpaid: billed - collected };
     });
     const income = houseResults.reduce((sum, result) => sum + result.collected, 0);
@@ -3466,7 +3669,7 @@
     const overdueRequests = state.requests.filter(card => !card.resolved && !card.cancelled && requestIsOverdue(card));
     const noOverdueMarketers = activeEmployees().filter(employee => employee.role === "marketer" && employee.bonus === "noOverdueReputation");
     if (!overdueRequests.length && noOverdueMarketers.length) {
-      state.reputation += noOverdueMarketers.length;
+      changeReputation(noOverdueMarketers.length);
       noOverdueMarketers.forEach(employee => seasonLog.push(`Маркетолог ${employee.name}: просроченных заявок нет, репутация +1 за ход.`));
     }
     refreshPortfolioTotals();
@@ -3474,7 +3677,7 @@
     state.financialHistory.push({ year: state.year, seasonIndex: state.seasonIndex, seasonTurnIndex: state.seasonTurnIndex, ...state.lastSeasonFinancials, capital: state.capital, collectionRate, reputation: state.reputation });
     state.seasonFinancials = { upkeep: 0, salaries: 0, paidIncome: 0, problemRepairs: 0, contractors: 0, materials: 0 };
     seasonLog.push(`Собрано платежей: +${money(income)} ₽.`);
-    checkBankruptcy();
+    checkBankruptcy(true);
     if (state.phase === "bankruptcy") {
       addLogSequence(seasonLog);
       saveState(); render(); showToast(`После расчёта финансов за ход баланс достиг ${money(BANKRUPTCY_THRESHOLD)} ₽. Необходимо объявить банкротство.`);
@@ -3531,7 +3734,7 @@
     const tariffOssSkippedHomes = managedHomes().filter(home => home.tariffOssResolvedYear !== state.year);
     if (managedHomes().length && tariffOssSkippedHomes.length === 0) {
       const bonus = CONFIG.oss?.tariffOssSkippedReputationBonus ?? 1;
-      state.reputation += bonus;
+      changeReputation(bonus);
       if (state.lastAnnualReport?.year === state.year) {
         state.lastAnnualReport.reputation.end = state.reputation;
         state.lastAnnualReport.reputation.tariffNoAttemptBonus = (state.lastAnnualReport.reputation.tariffNoAttemptBonus || 0) + bonus;
@@ -3597,8 +3800,8 @@
       if (employee.pendingDeparture || employee.deceased) continue;
       const hrPresent = activeEmployees().some(person => person.role === "hr");
       const causes = [
-        { reason: "death", label: "Смерть сотрудника", chance: loyaltyOf(employee) >= -4 ? boundedProbability(employee.age / 20) : 0, immediate: true },
-        { reason: "health", label: "Проблемы со здоровьем", chance: boundedProbability(1 + employee.age / 10), needsResponse: true },
+        { reason: "death", label: "Смерть сотрудника", chance: loyaltyOf(employee) >= -4 ? boundedProbability(employee.age / 50) : 0, immediate: true },
+        { reason: "health", label: "Проблемы со здоровьем", chance: boundedProbability(1 + employee.age / 50), needsResponse: true },
         { reason: "outsideOffer", label: "Получил предложение от конкурента", chance: outsideOfferChance(employee), needsResponse: true },
         { reason: "lowReputation", label: "Увольнение из-за плохой репутации УО", chance: lowReputationDepartureChance(employee), needsResponse: true },
         { reason: "dissatisfaction", label: "Увольнение по собственному желанию", chance: moodTurnoverChance(employee), needsResponse: true }

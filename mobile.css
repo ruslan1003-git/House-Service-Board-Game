@@ -78,6 +78,7 @@ body.mobile-mode { margin: 0; padding: 0 0 calc(94px + env(safe-area-inset-botto
 .mobile-mode .penalties-header-actions { flex-wrap: wrap; }
 .mobile-mode .penalties-header-actions .penalty-toggle-button { display: none; }
 .mobile-mode .requests-panel > .panel-heading, .mobile-mode .requests-panel > .penalties-compact, .mobile-mode .requests-panel > #oss-agenda-panel:not([hidden]) { display: none !important; }
+.mobile-mode #agenda-next-stage-button { display:none !important; }
 .mobile-mode .requests-panel > #problem-panel[hidden], .mobile-mode .requests-panel > #legal-panel[hidden], .mobile-mode .requests-panel > #requests-disclosure[hidden] { display: none !important; }
 .mobile-mode #requests-disclosure { border: 0; padding: 0; background: transparent; }
 .mobile-mode #requests-disclosure > summary, .mobile-mode #requests-disclosure > .panel-footer { display: none; }
